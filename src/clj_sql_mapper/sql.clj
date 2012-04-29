@@ -1,5 +1,5 @@
 (ns clj-sql-mapper.sql
-  "TODO: spacing, sql fragments, where, cond, set
+  "TODO: spacing, sql fragments, where, cond, set, substitution
 "
   (:refer-clojure :rename {when core-when})
   (:require [clojure.tools.logging :as log]
@@ -17,13 +17,13 @@
 (defn- parse [s]
   (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-]+" #(str \" % \")) read-string eval))
 
-(defn- compile [sql]
+(defn- compile-sql [sql]
   (cond
    (string? sql) (parse sql)
    :else (-> sql eval list)))
 
 (defn sql* [& args]
-  (->> args (mapcat compile) (remove #(and (string? %) (str/blank? %)))))
+  (->> args (mapcat compile-sql) (remove #(and (string? %) (str/blank? %)))))
 
 (defmacro sql [& args]
   (let [sql (apply sql* args)]
