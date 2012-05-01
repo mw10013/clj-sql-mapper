@@ -6,9 +6,7 @@
             [clojure.string :as str]))
 
 (defn prepare [m sql]
-  (println "prepare: " sql)
   (reduce (fn [[sql-str sql-params] x]
-            (println "prepare x: " x (type x))
             (cond
              (string? x) [(str sql-str x) sql-params]
              (keyword? x) [(str sql-str \?) (conj sql-params (m x))]
@@ -31,26 +29,21 @@
   (let [sql (apply sql* args)]
     `(list  ~@sql)))
 
-(defmacro when [& [predicate & coll]]
+(defmacro when [& [predicate & sqls]]
   (let [predicate (if (seq? predicate) predicate (list predicate))
-        coll (apply sql* coll)]
-    `(fn [param-map#] (core-when (~@predicate param-map#) (prepare param-map# (list ~@coll))))))
+        sqls (apply sql* sqls)]
+    `(fn [param-map#] (core-when (~@predicate param-map#) (prepare param-map# (list ~@sqls))))))
 
-(defn prepare-where [m coll]
-  (println "prepare-where")
-  (println "prepare-where: " coll (type coll))
-  (when-let [coll (->> coll (map (partial prepare m)) (remove (comp str/blank? first)) seq)]
-    (let [[ sql-str params] (reduce (fn [[sql-str params] [s p]]
-                                      (let [s (if (str/blank? sql-str) (str/replace s #"^\s*(?i:and|or)\s+" "") s)]
-                                        [(str sql-str " " s) (into params p)]))
-                                    [nil []] coll)]
-      [(str "where " sql-str) params])))
+(defn prepare-where [m sqls]
+  (when-let [sqls (->> sqls (map (partial prepare m)) (remove (comp str/blank? first)) seq)]
+    (butlast (reduce (fn [[sql-str params first?] [s p]]
+                       (let [s (if first? (str/replace s #"^\s*(?i:and|or)\s+" "") s)]
+                         [(str sql-str " " s) (into params p) false]))
+                     ["where" [] true] sqls))))
 
-(defmacro where [& coll]
-  (let [coll (map #(list 'list (sql*) %) coll)]
-    (prn coll)
-    `(fn [param-map#] (prepare-where param-map# (list ~@coll)))))
+(defmacro where [& sqls] `(fn [param-map#] (prepare-where param-map# '~(map sql* sqls))))
 
+; (macroexpand-1 ' (where "title = :title"))
 ; (sql (where "title = :title"))
 ; (prepare {:title "the-title"} (sql (where "title = :title")))
 

@@ -20,4 +20,24 @@
                       (sql/sql "select * from blog where state = 'ACTIVE' "
                                (sql/when #(and (% :author) (% :title)) "and author like :author and title like :title"))))))
 
+(deftest where
+  #_(is (= ["" []] (sql/prepare {} (sql/sql (sql/where)))))
+  (is (= ["where title = ?" ["the-title"]] (sql/prepare {:title "the-title"} (sql/sql (sql/where "title = :title")))))
+  (is (= ["where title = ?" ["the-title"]] (sql/prepare {:title "the-title"} (sql/sql (sql/where "or title = :title")))))
+  (is (= ["where title = ?" ["the-title"]] (sql/prepare {:title "the-title"} (sql/sql (sql/where "and title = :title")))))
+  (is (= ["where title = ?" ["the-title"]] (sql/prepare {:title "the-title"} (sql/sql (sql/where " or title = :title")))))
+  (is (= ["where title = ?" ["the-title"]] (sql/prepare {:title "the-title"} (sql/sql (sql/where " and title = :title")))))
+  (is (= ["where title = ?" ["the-title"]] (sql/prepare {:title "the-title"} (sql/sql (sql/where "OR title = :title")))))
+  (is (= ["where title = ?" ["the-title"]] (sql/prepare {:title "the-title"} (sql/sql (sql/where "AND title = :title")))))
+  (is (= ["where title = ?" ["the-title"]]
+         (sql/prepare {:title "the-title"} (sql/sql (sql/where (sql/when :author "and author = :author")
+                                                               (sql/when :title "and title = :title"))))))
+  (is (= ["where author = ?" ["clinton"]]
+         (sql/prepare {:author "clinton"} (sql/sql (sql/where (sql/when :author "and author = :author")
+                                                               (sql/when :title "and title = :title"))))))
+  (is (= ["where author = ? and title = ?" ["clinton" "the-title"]]
+         (sql/prepare {:author "clinton" :title "the-title"} (sql/sql (sql/where (sql/when :author "and author = :author")
+                                                                                 (sql/when :title "and title = :title"))))))
+  )
+
 (run-tests 'clj-sql-mapper.test.sql)
