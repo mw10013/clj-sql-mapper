@@ -1,5 +1,5 @@
 (ns clj-sql-mapper.sql
-  "TODO: spacing, sql fragments, where, cond, set, substitution
+  "TODO: spacing, cond, set, substitution, foreach, parent.child
 "
   (:refer-clojure :rename {when core-when})
   (:require [clojure.tools.logging :as log]
@@ -10,16 +10,18 @@
             (cond
              (string? x) [(str sql-str x) sql-params]
              (keyword? x) [(str sql-str \?) (conj sql-params (m x))]
+             (var? x) (let [[s p] (prepare m @x)] [(str sql-str s) (into sql-params p)])
              :else (let [[s params] (x m)]
                      [(str sql-str s) (into sql-params params)])))
           [nil []] sql))
 
 (defn- parse [s]
-  (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-]+" #(str \" % \")) read-string eval))
+  (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-]+|#'[a-z0-9\-]+" #(str \" % \")) read-string eval))
 
 (defn- compile-sql [sql]
   (cond
    (string? sql) (parse sql)
+   (var? sql) sql
    :else (-> sql eval list)))
 
 (defn sql* [& args]
@@ -42,8 +44,3 @@
                      ["where" [] true] sqls))))
 
 (defmacro where [& sqls] `(fn [param-map#] (prepare-where param-map# '~(map sql* sqls))))
-
-; (macroexpand-1 ' (where "title = :title"))
-; (sql (where "title = :title"))
-; (prepare {:title "the-title"} (sql (where "title = :title")))
-

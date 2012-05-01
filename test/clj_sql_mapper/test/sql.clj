@@ -2,6 +2,9 @@
   (:use clojure.test)
   (:require [clj-sql-mapper [sql :as sql]]))
 
+(def cols (sql/sql "col1, col2, col3"))
+(def title (sql/sql "and title = :title"))
+
 (deftest sql
   (is (= '("select * from table") (sql/sql "select * from table")))
   (is (= '("select * from table where title = " :title) (sql/sql "select * from table where title = :title"))))
@@ -19,6 +22,11 @@
          (sql/prepare {:author "the-author" :title "the-title"}
                       (sql/sql "select * from blog where state = 'ACTIVE' "
                                (sql/when #(and (% :author) (% :title)) "and author like :author and title like :title"))))))
+
+(deftest vars
+  (is (= ["select col1, col2, col3 from table" []] (sql/prepare {} (sql/sql "select #'cols from table"))))
+  (is (= ["select col1, col2, col3 from table where title = ?" ["the-title"]]
+         (sql/prepare {:title "the-title"} (sql/sql "select #'cols from table " (sql/where #'title))))))
 
 (deftest where
   #_(is (= ["" []] (sql/prepare {} (sql/sql (sql/where)))))
