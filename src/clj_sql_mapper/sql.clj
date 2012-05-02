@@ -1,9 +1,13 @@
 (ns clj-sql-mapper.sql
-  "TODO: spacing, cond, substitution, foreach, parent.child, refer warnings
+  "TODO: spacing, substitution, foreach (coll), parent.child, refer warnings
+   keyword: :title :$substution :parent.child :$parent.child
 "
   (:refer-clojure :rename {when core-when set core-set cond core-cond})
   (:require [clojure.tools.logging :as log]
             [clojure.string :as str]))
+
+(defn prepare-keyword [m k]
+  )
 
 (defn prepare [m sql]
   (reduce (fn [[sql-str sql-params] x]
@@ -15,12 +19,14 @@
                      [(str sql-str s) (into sql-params p)])))
           [nil []] sql))
 
-(defn- parse [s]
+(defn- parse-str [s]
   (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-]+|#'[a-z0-9\-]+" #(str \" % \")) read-string eval))
+
+; (parse-str "this is a :$sub and this isn't :su$b")
 
 (defn- compile-sql [sql]
   (core-cond
-   (string? sql) (parse sql)
+   (string? sql) (parse-str sql)
    (var? sql) sql
    :else (-> sql eval list)))
 
@@ -59,5 +65,3 @@
   (or (->> sqls (map (partial prepare m)) (drop-while (comp str/blank? first)) first) ["" []]))
 
 (defmacro cond [& sqls] `(fn [param-map#] (prepare-cond param-map# '~(map sql* sqls))))
-
-; (prepare {} (sql (cond (when :title "where title = :title"))))
