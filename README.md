@@ -9,7 +9,7 @@ No actual sql mapper functionality yet.
 Simply add clj-sql-mapper as a dependency to your lein project:
 
 ```clojure
-[mw10013/clj-sql-mapper "0.0.1"]
+[org.clojars.mw10013/clj-sql-mapper "0.0.1"]
 ```
 
 ## Usage
