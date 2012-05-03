@@ -1,5 +1,5 @@
 (ns clj-sql-mapper.sql
-  "Sql for Clojure with apologies to mybatis."
+  "Dynamic sql for Clojure with apologies to mybatis."
   (:refer-clojure :rename {when core-when set core-set cond core-cond})
   (:require [clojure.string :as str]))
 

@@ -1,7 +1,8 @@
 # clj-sql-mapper
 
-SQL for Clojure with apologies to [mybatis](http://mybatis.org/).
+Dynamic SQL for Clojure with apologies to [mybatis](http://mybatis.org/).
 Based on the [Dynamic SQL](http://www.mybatis.org/core/dynamic-sql.html) work in mybatis.
+No actual sql mapper functionality yet.
 
 ## Getting started
 
@@ -13,7 +14,7 @@ Simply add clj-sql-mapper as a dependency to your lein project:
 
 ## Usage
 
-The namespace for SQL functions is clj-sql-mapper.sql.
+The namespace for dynamic SQL functions is clj-sql-mapper.sql.
 
     => (require '(clj-sql-mapper [sql :as sql]))
 
@@ -61,8 +62,8 @@ Using vars:
 sql/cond chooses the first non-empty sql string:
 
     => (sql/prepare {} (sql/sql (sql/cond (sql/when :title "title = :title")
-                                                             (sql/when :author "author = :author")
-                                                             "otherwise")))
+                                          (sql/when :author "author = :author")
+                                          "otherwise")))
     ["otherwise" []]
 
 ## License
