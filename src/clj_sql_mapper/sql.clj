@@ -1,41 +1,40 @@
 (ns clj-sql-mapper.sql
-  "TODO: spacing, substitution, foreach (coll), parent.child, refer warnings
-   keyword: :title :$substution :parent.child :$parent.child
-"
+  "Sql for Clojure with apologies to mybatis."
   (:refer-clojure :rename {when core-when set core-set cond core-cond})
-  (:require [clojure.tools.logging :as log]
-            [clojure.string :as str]))
-
-(defn prepare-keyword [m k]
-  )
-
-(defn prepare [m sql]
-  (reduce (fn [[sql-str sql-params] x]
-            (core-cond
-             (string? x) [(str sql-str x) sql-params]
-             (keyword? x) [(str sql-str \?) (conj sql-params (m x))]
-             (var? x) (let [[s p] (prepare m @x)] [(str sql-str s) (into sql-params p)])
-             :else (let [[s p] (x m)]
-                     [(str sql-str s) (into sql-params p)])))
-          [nil []] sql))
+  (:require [clojure.string :as str]))
 
 (defn- parse-str [s]
   (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-]+|#'[a-z0-9\-]+" #(str \" % \")) read-string eval))
 
-; (parse-str "this is a :$sub and this isn't :su$b")
-
 (defn- compile-sql [sql]
+  "Compiles sql into a list of strings, keywords, vars, and functions
+   taking a parameter map."
   (core-cond
    (string? sql) (parse-str sql)
    (var? sql) sql
    :else (-> sql eval list)))
 
 (defn sql* [& args]
+  "Compile SQL."
   (->> args (mapcat compile-sql) (remove #(and (string? %) (str/blank? %)))))
 
 (defmacro sql [& args]
+  "Compile SQL."
   (let [sql (apply sql* args)]
     `(list  ~@sql)))
+
+(defn prepare
+  "Returns SQL string with any bind vars along with a collection parameters."
+  ([sql] (prepare {} sql))
+  ([m sql]
+      (reduce (fn [[sql-str sql-params] x]
+                (core-cond
+                 (string? x) [(str sql-str x) sql-params]
+                 (keyword? x) [(str sql-str \?) (conj sql-params (m x))]
+                 (var? x) (let [[s p] (prepare m @x)] [(str sql-str s) (into sql-params p)])
+                 :else (let [[s p] (x m)]
+                         [(str sql-str s) (into sql-params p)])))
+              [nil []] sql)))
 
 (defmacro when [& [predicate & sqls]]
   (let [predicate (if (seq? predicate) predicate (list predicate))

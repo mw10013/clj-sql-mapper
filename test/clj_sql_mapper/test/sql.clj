@@ -66,4 +66,4 @@
                                                              (sql/when :author "author = :author")
                                                              "otherwise"))))))
 
-(run-tests 'clj-sql-mapper.test.sql)
+; (run-tests 'clj-sql-mapper.test.sql)

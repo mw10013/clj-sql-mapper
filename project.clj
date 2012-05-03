@@ -1,4 +1,3 @@
-(defproject clj-sql-mapper "1.0.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :dependencies [[org.clojure/clojure "1.3.0"]
-                 [org.clojure/tools.logging "0.2.3"]])
+(defproject clj-sql-mapper "0.0.1"
+  :description "SQL for Clojure with apologies to mybatis"
+  :dependencies [[org.clojure/clojure "1.3.0"]])
