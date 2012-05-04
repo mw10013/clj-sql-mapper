@@ -1,9 +1,17 @@
 (ns clj-sql-mapper.sql
-  "Dynamic sql for Clojure with apologies to mybatis."
+  "Dynamic sql for Clojure with apologies to mybatis.
+
+   Use the sql macro to compile SQL represented as strings, vars,
+   and functions taking a param map.
+
+   prepare takes a param map and turns compiled SQL into vector
+   containing the corresponding SQL string and params.
+   The vector is suitable for clojure.java.jdbc/with-query-results."
   (:refer-clojure :rename {when core-when set core-set cond core-cond})
   (:require [clojure.string :as str]))
 
 (defn- parse-str [s]
+  "Parses s to return a collection of strings, keywords, and vars."
   (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-]+|#'[a-z0-9\-]+" #(str \" % \")) read-string eval))
 
 (defn- compile-sql [sql]
@@ -19,48 +27,83 @@
   (->> args (mapcat compile-sql) (remove #(and (string? %) (str/blank? %)))))
 
 (defmacro sql [& args]
-  "Compile SQL."
+  "Takes args of string, var, and code evaluating into a function taking
+   a parameter map argument.
+
+   Strings are parsed into substrings, keywords, and vars.
+   Eg. \"select #'cols from table where title = :title\" parses into
+   \"select \" #'cols \" from table where title = \" :title
+
+   Returns collection of 'compiled' sql as strings, keywords, vars, and
+   functions taking a parameter map argument. Run the collection through
+   prepare with a param map to get the corresponding SQL string with bind
+   vars."
   (let [sql (apply sql* args)]
     `(list  ~@sql)))
 
 (defn prepare
-  "Returns SQL string with any bind vars along with a collection parameters."
+  "Takes a param map and compiled sql.
+   Returns a vector of SQL string with any bind vars and parameters.
+   This vector is suitable for clojure.java.jdbc/with-query-results."
   ([sql] (prepare {} sql))
   ([m sql]
-      (reduce (fn [[sql-str sql-params] x]
-                (core-cond
-                 (string? x) [(str sql-str x) sql-params]
-                 (keyword? x) [(str sql-str \?) (conj sql-params (m x))]
-                 (var? x) (let [[s p] (prepare m @x)] [(str sql-str s) (into sql-params p)])
-                 :else (let [[s p] (x m)]
-                         [(str sql-str s) (into sql-params p)])))
-              [nil []] sql)))
+     (reduce (fn [prep-sql x]
+               (core-cond
+                (string? x) (update-in prep-sql [0] str x)
+                (keyword? x) (-> prep-sql (update-in [0] str \?) (conj (m x)))
+                (var? x) (let [[s & rest] (prepare m @x)] (-> prep-sql (update-in [0] str s) (into rest)))
+                (fn? x) (let [[s & rest] (x m)] (-> prep-sql (update-in [0] str s) (into rest)))
+                (coll? x) (let [[s & rest] (prepare m x)] (-> prep-sql (update-in [0] str s) (into rest)))
+                :else (throw (IllegalArgumentException. (str "sql/prepare: can't handle " x " (" (type x) ") in " sql)))))
+             [""] sql)))
 
 (defmacro when [& [predicate & sqls]]
+  "Compiles to sql that returns prepared sqls if predicate
+   returns truthy against a param map."
   (let [predicate (if (seq? predicate) predicate (list predicate))
         sqls (apply sql* sqls)]
     `(fn [param-map#] (core-when (~@predicate param-map#) (prepare param-map# (list ~@sqls))))))
 
-(defn prepare-where [m sqls]
-  (when-let [sqls (->> sqls (map (partial prepare m)) (remove (comp str/blank? first)) seq)]
-    (butlast (reduce (fn [[sql-str params first?] [s p]]
-                       (let [s (if first? (str/replace s #"^\s*(?i:and|or)\s+" "") s)]
-                         [(str sql-str " " s) (into params p) false]))
-                     [" where" [] true] sqls))))
+(defn prepare-where [param-map sqls]
+  (when-let [sqls (->> sqls (map (partial prepare param-map)) (remove (comp str/blank? first)) seq)]
+    (first (reduce (fn [[prep-sql first?] [s & rest]]
+                     (let [s (if first? (str/replace s #"^\s*(?i:and|or)\s+" "") s)]
+                       [(-> prep-sql (update-in [0] str " " s) (into rest)) false]))
+                   [[" where"] true] sqls))))
 
-(defmacro where [& sqls] `(fn [param-map#] (prepare-where param-map# '~(map sql* sqls))))
+(defmacro where
+  "Compiles to sql that returns a where clause trimming and/or's as necessary."
+  [& sqls]
+  `(fn [param-map#] (prepare-where param-map# '~(map sql* sqls))))
 
 (defn prepare-set [m sqls]
-  (let [sqls (->> sqls (map (partial prepare m)) (remove (comp str/blank? first)))
-        [sql-str params] (reduce (fn [[sql-str params] [s p]]
-                                   [(str sql-str " " s) (into params p)])
-                                 [" set" []] sqls)
-        sql-str (str/replace sql-str #"\s*,\s*$" "")]
-    [sql-str params]))
+  (let [sqls (->> sqls (map (partial prepare m)) (remove (comp str/blank? first)))]
+    (-> (reduce (fn [[sql-str :as prep-sql] [s & rest]]
+                  (-> prep-sql (update-in [0] str " " s) (into rest)))
+                [" set"] sqls)
+        (update-in [0] str/replace #"\s*,\s*$" ""))))
 
-(defmacro set [& sqls] `(fn [param-map#] (prepare-set param-map# '~(map sql* sqls))))
+(defmacro set
+  "Compiles to sql that returns a set clause trimming comma's as necssary."
+  [& sqls]
+  `(fn [param-map#] (prepare-set param-map# '~(map sql* sqls))))
 
 (defn prepare-cond [m sqls]
-  (or (->> sqls (map (partial prepare m)) (drop-while (comp str/blank? first)) first) ["" []]))
+  (or (->> sqls (map (partial prepare m)) (drop-while (comp str/blank? first)) first) [""]))
 
-(defmacro cond [& sqls] `(fn [param-map#] (prepare-cond param-map# '~(map sql* sqls))))
+(defmacro cond
+  "Compiles to sql that returns the first non-blank sql."
+  [& sqls]
+  `(fn [param-map#] (prepare-cond param-map# '~(map sql* sqls))))
+
+(defn prepare-coll [m k]
+  (let [coll (->> k m (map #(if (or (string? %) (keyword? %)) (str \' (name %) \') %)) (interpose ", ") (apply str))]
+    [(str " (" coll \))]))
+
+(defmacro coll
+  "Compiles to sql that returns a sql collection for k in a param map.
+   If k corresponding to [:a :b :c] the sql collection would be
+   ('a', 'b', 'c')."
+  [k]
+  `(fn [param-map#] (prepare-coll param-map# ~k)))
+
