@@ -6,3 +6,6 @@
 /.lein-failures
 /checkouts
 /.lein-deps-sum
+*.log
+clj_sql_mapper_test_hsqldb.properties
+clj_sql_mapper_test_hsqldb.script
