@@ -4,13 +4,19 @@
 
 (def cols (sql/sql "col1, col2, col3"))
 (def title (sql/sql "and title = :title"))
+(def where-title (sql/sql "where title = :title"))
 
 (deftest sql
   (is (= '("select * from table") (sql/sql "select * from table")))
-  (is (= '("select * from table where title = " :title) (sql/sql "select * from table where title = :title"))))
+  (is (= '("select * from table") (let [s "select * from table"] (sql/sql s))))
+  (is (= '("select * from table where title = " :title) (sql/sql "select * from table where title = :title")))
+  (is (= (list "select " #'cols " from table") (sql/sql "select " #'cols " from table")))
+  (is (= #'where-title) (sql/sql "#'where-title")))
 
 (deftest sql-when
   (is (= ["where title = ?" "the-title"] ((sql/when :title "where title = :title") {:title "the-title"})))
+  (is (= ["where title = ?" "the-title"] (let [s "where title = :title"] ((sql/when :title s) {:title "the-title"}))))
+  (is (= ["where title = ?" "the-title"] ((sql/when :title #'where-title) {:title "the-title"})))
   (is (= ["where title = ?" "the-title"] ((sql/when #(:title %) "where title = :title") {:title "the-title"})))
   (is (= ["where title = ?" "the-title"] ((sql/when identity "where title = :title") {:title "the-title"}))))
 
@@ -28,13 +34,14 @@
            (sql/prepare {:title "the-title"} [select-table where-title])))))
 
 (deftest vars
-  (is (= ["select col1, col2, col3 from table"] (sql/prepare {} (sql/sql "select #'cols from table"))))
+  (is (= ["select col1, col2, col3 from table"] (sql/prepare {} (sql/sql "select " #'cols " from table"))))
   (is (= ["select col1, col2, col3 from table where title = ?" "the-title"]
-         (sql/prepare {:title "the-title"} (sql/sql "select #'cols from table" (sql/where #'title))))))
+         (sql/prepare {:title "the-title"} (sql/sql "select " #'cols " from table" (sql/where #'title))))))
 
 (deftest sql-where
   #_(is (= ["" []] (sql/prepare {} (sql/sql (sql/where)))))
   (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "title = :title")))))
+  (is (= [" where title = ?" "the-title"] (let [s "title = :title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where s))))))
   (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "or title = :title")))))
   (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "and title = :title")))))
   (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where " or title = :title")))))

@@ -19,7 +19,7 @@
    taking a parameter map."
   (core-cond
    (string? sql) (parse-str sql)
-   (var? sql) sql
+   (var? sql) (list sql)
    :else (-> sql eval list)))
 
 (defn sql* [& args]
@@ -41,6 +41,8 @@
   (let [sql (apply sql* args)]
     `(list  ~@sql)))
 
+(def sql sql*)
+
 (defn prepare
   "Takes a param map and compiled sql.
    Returns a vector of SQL string with any bind vars and parameters.
@@ -52,7 +54,7 @@
                 (string? x) (update-in prep-sql [0] str x)
                 (keyword? x) (-> prep-sql (update-in [0] str \?) (conj (m x)))
                 (var? x) (let [[s & rest] (prepare m @x)] (-> prep-sql (update-in [0] str s) (into rest)))
-                (fn? x) (let [[s & rest] (x m)] (-> prep-sql (update-in [0] str s) (into rest)))
+                (fn? x) (do (def f x) (let [[s & rest] (x m)] (-> prep-sql (update-in [0] str s) (into rest))))
                 (coll? x) (let [[s & rest] (prepare m x)] (-> prep-sql (update-in [0] str s) (into rest)))
                 :else (throw (IllegalArgumentException. (str "sql/prepare: can't handle " x " (" (type x) ") in " sql)))))
              [""] sql)))
@@ -60,9 +62,8 @@
 (defmacro when [& [predicate & sqls]]
   "Compiles to sql that returns prepared sqls if predicate
    returns truthy against a param map."
-  (let [predicate (if (seq? predicate) predicate (list predicate))
-        sqls (apply sql* sqls)]
-    `(fn [param-map#] (core-when (~@predicate param-map#) (prepare param-map# (list ~@sqls))))))
+  (let [predicate (if (seq? predicate) predicate (list predicate))]
+    `(fn [param-map#] (core-when (~@predicate param-map#) (prepare param-map# (sql ~@sqls))))))
 
 (defn prepare-where [param-map sqls]
   (when-let [sqls (->> sqls (map (partial prepare param-map)) (remove (comp str/blank? first)) seq)]
@@ -75,6 +76,19 @@
   "Compiles to sql that returns a where clause trimming and/or's as necessary."
   [& sqls]
   `(fn [param-map#] (prepare-where param-map# '~(map sql* sqls))))
+
+(defmacro where
+  "Compiles to sql that returns a where clause trimming and/or's as necessary."
+  [& sqls]
+  `(fn [param-map#] (prepare-where param-map# (map sql (list ~@sqls)))))
+
+(comment
+  (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "title = :title")))))
+  (prepare {:title "the-title"} (sql (where "title = :title")))
+  (macroexpand-1 '(sql (where "title = :title")))
+  (macroexpand-1 '(where "title = :title"))
+  (map sql '("title = :title"))
+  )
 
 (defn prepare-set [m sqls]
   (let [sqls (->> sqls (map (partial prepare m)) (remove (comp str/blank? first)))]

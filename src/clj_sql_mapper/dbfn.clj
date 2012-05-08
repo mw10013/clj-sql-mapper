@@ -1,8 +1,14 @@
 (ns clj-sql-mapper.dbfn
   (:require (clj-sql-mapper [sql :as sql] [db :as db])))
 
-(defn sql [spec sql]
-  (update-in spec [:sql] (fnil conj []) sql))
+#_(defn sql [spec sql]
+  (let [sql (if (string? sql) (sql/sql sql) sql)]
+    (update-in spec [:sql] (fnil conj []) sql)))
+
+(defn add-sql [spec x]
+  (if (string? x) (sql/sql "select * from table") x))
+
+; (sql/sql "select * from table")
 
 (defmacro defspec [name base & body]
   `(let [base# (or ~base {})
@@ -10,9 +16,9 @@
          base# (-> base# ~@body)]
      (def ~name base#)))
 
-#_(defmacro defquery [name spec & body]
-  `(let [spec# (-> ~spec @~body)]
-     (defn ~name [param-map#] (sql/prepare param-map# (:sql spec#)))))
+(defmacro defquery [name spec & body]
+  `(let [spec# (-> ~spec ~@body)]
+     (def ~name (fn [~'param-map] (sql/prepare ~'param-map (:sql spec#))))))
 
 (comment
   (defspec spec nil)
@@ -23,4 +29,6 @@
   (macroexpand-1 '(defspec spec nil))
   (macroexpand-1 '(defspec spec {}))
   (defquery query spec)
+  (macroexpand-1 '(defquery query spec))
+  (query {:title "the-title"})
   )
