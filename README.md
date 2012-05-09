@@ -9,7 +9,7 @@ No actual sql mapper functionality yet.
 Simply add clj-sql-mapper as a dependency to your lein project:
 
 ```clojure
-[org.clojars.mw10013/clj-sql-mapper "0.0.2"]
+[org.clojars.mw10013/clj-sql-mapper "0.0.5"]
 ```
 
 ## Usage
@@ -56,7 +56,7 @@ Using vars:
 
     => (def cols (sql/sql "col1, col2, col3"))
     => (def title (sql/sql "and title = :title"))
-    => (sql/prepare {:title "the-title"} (sql/sql "select #'cols from table" (sql/where #'title)))
+    => (sql/prepare {:title "the-title"} (sql/sql "select " #'cols " from table" (sql/where #'title)))
     ["select col1, col2, col3 from table where title = ?" "the-title"]
 
 sql/cond chooses the first non-empty sql string:
@@ -70,6 +70,50 @@ sql/coll builds a collection:
 
     => (sql/prepare {:coll ["a" "b" "c"]} (sql/sql (sql/coll :coll)))
     [" ('a', 'b', 'c')"]
+
+The namespce for db is clj-sql-mapper.db.
+
+    => (require '(clj-sql-mapper [db :as db]))
+
+Create a db:
+
+    => (defonce db (db/create-db {:datasource-spec {:classname "org.hsqldb.jdbcDriver"
+                                             :subprotocol "hsqldb"
+                                             :subname "clj_sql_mapper_test_hsqldb"}
+                                  :pool-spec {:idle-time-excess-in-sec (* 15 60)
+                                              :idle-time (* 30 60)}
+                                  :naming-strategy {:keys #(-> % clojure.string/lower-case (clojure.string/replace \_ \-))
+                                                    :fields #(clojure.string/replace % \- \_)}}))
+
+The namespace for dbfn's is clj-sql-mapper.dbfn.
+
+    => (require '(clj-sql-mapper [dbfn :as dbfn]))
+
+Define a select starting from a db:
+
+    => (dbfn/defselect fruit db (dbfn/sql "select * from fruit"))
+
+And call it:
+
+    => (fruit)
+    []
+
+Define an insert and call it:
+
+    => (dbfn/definsert insert-fruit db (dbfn/sql "insert into fruit (id, name, appearance) values (:id, :name, :appearance)"))
+    => (insert-fruit :id 11 :name "apple" :appearance "red")
+    => (fruit)
+    [{:id 11, :name "apple", :appearance "red", :cost nil, :grade nil}]
+    
+Update it:
+
+    => (dbfn/defupdate update-fruit db (dbfn/sql "update fruit set name = :name, appearance = :appearance where id = :id"))
+    => (update-fruit :id 11 :name "orange" :appearance "orange")
+
+Delete it:
+
+    => (dbfn/defdelete delete-fruit db (dbfn/sql "delete from fruit where id = :id"))
+    => (delete-fruit :id 11)
 
 ## License
 
