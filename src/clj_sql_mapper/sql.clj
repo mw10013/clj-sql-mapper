@@ -12,7 +12,7 @@
 
 (defn- parse-str [s]
   "Parses s to return a collection of strings, keywords, and vars."
-  (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-]+|#'[a-z0-9\-]+" #(str \" % \")) read-string eval))
+  (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-]+" #(str \" % \")) read-string eval))
 
 (defn- compile-sql [sql]
   "Compiles sql into a list of strings, keywords, vars, and functions
@@ -22,26 +22,19 @@
    (var? sql) (list sql)
    :else (-> sql eval list)))
 
-(defn sql* [& args]
-  "Compile SQL."
-  (->> args (mapcat compile-sql) (remove #(and (string? %) (str/blank? %)))))
-
-(defmacro sql [& args]
+(defn sql [& args]
   "Takes args of string, var, and code evaluating into a function taking
    a parameter map argument.
 
-   Strings are parsed into substrings, keywords, and vars.
-   Eg. \"select #'cols from table where title = :title\" parses into
-   \"select \" #'cols \" from table where title = \" :title
+   Strings are parsed into substrings and keywords
+   Eg. \"select * from table where title = :title\" parses into
+   \"select \" * \" from table where title = \" :title
 
    Returns collection of 'compiled' sql as strings, keywords, vars, and
    functions taking a parameter map argument. Run the collection through
    prepare with a param map to get the corresponding SQL string with bind
    vars."
-  (let [sql (apply sql* args)]
-    `(list  ~@sql)))
-
-(def sql sql*)
+  (->> args (mapcat compile-sql) (remove #(and (string? %) (str/blank? %)))))
 
 (defn prepare
   "Takes a param map and compiled sql.
@@ -75,20 +68,7 @@
 (defmacro where
   "Compiles to sql that returns a where clause trimming and/or's as necessary."
   [& sqls]
-  `(fn [param-map#] (prepare-where param-map# '~(map sql* sqls))))
-
-(defmacro where
-  "Compiles to sql that returns a where clause trimming and/or's as necessary."
-  [& sqls]
   `(fn [param-map#] (prepare-where param-map# (map sql (list ~@sqls)))))
-
-(comment
-  (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "title = :title")))))
-  (prepare {:title "the-title"} (sql (where "title = :title")))
-  (macroexpand-1 '(sql (where "title = :title")))
-  (macroexpand-1 '(where "title = :title"))
-  (map sql '("title = :title"))
-  )
 
 (defn prepare-set [m sqls]
   (let [sqls (->> sqls (map (partial prepare m)) (remove (comp str/blank? first)))]
@@ -100,7 +80,7 @@
 (defmacro set
   "Compiles to sql that returns a set clause trimming comma's as necssary."
   [& sqls]
-  `(fn [param-map#] (prepare-set param-map# '~(map sql* sqls))))
+  `(fn [param-map#] (prepare-set param-map# (map sql (list ~@sqls)))))
 
 (defn prepare-cond [m sqls]
   (or (->> sqls (map (partial prepare m)) (drop-while (comp str/blank? first)) first) [""]))
@@ -108,7 +88,7 @@
 (defmacro cond
   "Compiles to sql that returns the first non-blank sql."
   [& sqls]
-  `(fn [param-map#] (prepare-cond param-map# '~(map sql* sqls))))
+  `(fn [param-map#] (prepare-cond param-map# (map sql (list ~@sqls)))))
 
 (defn prepare-coll [m k]
   (let [coll (->> k m (map #(if (or (string? %) (keyword? %)) (str \' (name %) \') %)) (interpose ", ") (apply str))]
@@ -120,4 +100,3 @@
    ('a', 'b', 'c')."
   [k]
   `(fn [param-map#] (prepare-coll param-map# ~k)))
-

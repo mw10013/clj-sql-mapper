@@ -1,34 +1,57 @@
 (ns clj-sql-mapper.dbfn
-  (:require (clj-sql-mapper [sql :as sql] [db :as db])))
+  (:require [clojure.java.jdbc :as jdbc]
+            (clj-sql-mapper [sql :as sql] [db :as db])))
 
-#_(defn sql [spec sql]
+(def ^{:dynamic true} *exec-mode* false)
+
+(defn sql [spec sql]
   (let [sql (if (string? sql) (sql/sql sql) sql)]
     (update-in spec [:sql] (fnil conj []) sql)))
 
-(defn add-sql [spec x]
-  (if (string? x) (sql/sql "select * from table") x))
-
-; (sql/sql "select * from table")
+(defn spec [base]
+  (let [base (or base {})]
+    (if (:connection-spec base) {:db base} base)))
 
 (defmacro defspec [name base & body]
-  `(let [base# (or ~base {})
-         base# (if (:connection-spec base#) {:db base#} base#)
-         base# (-> base# ~@body)]
-     (def ~name base#)))
+  `(def ~name (-> ~base spec ~@body)))
 
-(defmacro defquery [name spec & body]
-  `(let [spec# (-> ~spec ~@body)]
-     (def ~name (fn [~'param-map] (sql/prepare ~'param-map (:sql spec#))))))
+(defn select [spec & args]
+  (let [param-map (if (-> args first map?) (first args) (apply hash-map args))
+        sql (sql/prepare param-map (:sql spec))]
+    (if (= *exec-mode* :sql)
+      sql
+      (db/with-db (:db spec)
+        (jdbc/with-query-results rs sql (vec rs))))))
 
-(comment
-  (defspec spec nil)
-  (defspec spec {})
-  (defspec spec {:connection-spec {:datasource "datasource"}})
-  (defspec spec {:connection-spec {:datasource "datasource"}} (sql (sql/sql "select * from table")))
-  (defspec spec {:connection-spec {:datasource "datasource"}} (sql (sql/sql "select * from table")) (sql (sql/sql " where title = :title")))
-  (macroexpand-1 '(defspec spec nil))
-  (macroexpand-1 '(defspec spec {}))
-  (defquery query spec)
-  (macroexpand-1 '(defquery query spec))
-  (query {:title "the-title"})
-  )
+(defmacro defselect [name spec & body]
+  `(let [spec# (-> ~spec spec ~@body)]
+     (def ~name (partial select spec#))))
+
+(defn- do-prepared [spec & args]
+  (let [param-map (if (-> args first map?) (first args) (apply hash-map args))
+        sql (sql/prepare param-map (:sql spec))]
+    (if (= *exec-mode* :sql)
+      sql
+      (db/with-db (:db spec)
+        (jdbc/do-prepared (first sql) (rest sql))))))
+
+(def insert do-prepared)
+
+(defmacro definsert [name spec & body]
+  `(let [spec# (-> ~spec spec ~@body)]
+     (def ~name (partial insert spec#))))
+
+(def update do-prepared)
+
+(defmacro defupdate [name spec & body]
+  `(let [spec# (-> ~spec spec ~@body)]
+     (def ~name (partial update spec#))))
+
+(def delete do-prepared)
+
+(defmacro defdelete [name spec & body]
+  `(let [spec# (-> ~spec spec ~@body)]
+     (def ~name (partial delete spec#))))
+
+(defmacro sql-only [& body]
+  `(binding [*exec-mode* :sql] ~@body))

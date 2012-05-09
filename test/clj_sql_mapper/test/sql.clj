@@ -60,6 +60,7 @@
 
 (deftest sql-set
   (is (= ["update table set col1 = val1"] (sql/prepare {} (sql/sql "update table" (sql/set "col1 = val1,")))))
+  (is (= ["update table set col1 = val1"] (sql/prepare {} (let [s "col1 = val1,"] (sql/sql "update table" (sql/set s))))))
   (is (= [" set title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/set "title = :title,")))))
   (is (= [" set title = ?, author = ?" "the-title" "clinton"]
          (sql/prepare {:title "the-title" :author "clinton"}
@@ -75,7 +76,10 @@
                                                                                         "otherwise")))))
   (is (= ["otherwise"] (sql/prepare {} (sql/sql (sql/cond (sql/when :title "title = :title")
                                                              (sql/when :author "author = :author")
-                                                             "otherwise"))))))
+                                                             "otherwise")))))
+  (is (= ["otherwise"] (sql/prepare (let [s "otherwise"] (sql/sql (sql/cond (sql/when :title "title = :title")
+                                                                                        (sql/when :author "author = :author")
+                                                                                        s)))))))
 
 (deftest coll
   (is (= [" ()"] (sql/prepare {} (sql/sql (sql/coll :coll)))))

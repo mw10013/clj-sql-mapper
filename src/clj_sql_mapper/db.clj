@@ -16,6 +16,10 @@
     {:connection-spec {:datasource cpds}
      :naming-strategy (:naming-strategy db-spec)}))
 
+(defn destroy-db [db]
+  (when-let [datasource (-> db :connection-spec :datasource)]
+    (com.mchange.v2.c3p0.DataSources/destroy datasource)))
+
 (defn with-db*
   "Evaluates f in the context of a new/existing connection to db.
    A new connection is created within the context of the db's naming strategy."
@@ -30,37 +34,3 @@
   "Evaluates body in the context of a new/existing connection to db."
   [db & body]
   `(with-db* ~db (fn [] ~@body)))
-
-(comment
-  (def db (create-db {:datasource-spec {:classname "org.hsqldb.jdbcDriver"
-                                        :subprotocol "hsqldb"
-                                        :subname "clj_sql_mapper_test_hsqldb"}
-                      :pool-spec {:idle-time-excess-in-sec (* 15 60)
-                                  :idle-time (* 30 60)}
-                      :naming-strategy {:keys #(-> % clojure.string/lower-case (clojure.string/replace \_ \-))
-                                        :fields #(clojure.string/replace % \- \_)}}))
-
-  (jdbc/with-connection (:connection-spec db)
-    (jdbc/create-table
-     :fruit
-     [:id :int]
-     [:name "VARCHAR(32)"]
-     [:appearance "VARCHAR(32)"]
-     [:cost :int]
-     [:grade :real])
-    (jdbc/with-query-results rs ["select * from fruit"] (vec rs)))
-
-  (with-db db
-    (jdbc/drop-table :fruit))
-
-  (with-db db
-    (jdbc/do-prepared "INSERT INTO fruit ( name, appearance, cost, grade ) VALUES ( 'test', 'test', 1, 1.0 )"))
-
-  (with-db db
-    (jdbc/with-query-results rs ["select * from fruit"] (vec rs)))
-
-  )
-
-  
-
-
