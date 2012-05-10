@@ -59,6 +59,20 @@
   (is (= '(1) (update-fruit :id 11 :name "orange" :appearance "orangy")))
   (is (= '(0) (update-fruit :id 12 :name "orange" :appearance "orangy")))
 
+  (is (= '(1)) (insert-fruit :id 22 :name "banana" :appearance "yellow" :cost 22 :grade 2.0))
+
+  (def cols (sql/sql " id, name, appearance "))
+  (def by-id (sql/sql " where id = :id"))
+  (dbfn/defselect select-by-id db (dbfn/sql "select" cols "from fruit" by-id))
+  (is (= [{:id 22 :name "banana" :appearance "yellow"}] (select-by-id :id 22)))
+
+  (dbfn/defspec fruit-base db (dbfn/sql "select" cols "from fruit"))
+  (dbfn/defselect all-fruit fruit-base)
+  (is (= 2 (count (all-fruit))))
+
+  (dbfn/defselect by-appearance fruit-base (dbfn/sql " where appearance = :appearance"))
+  (is (= 1 (count (by-appearance :appearance "yellow"))))
+
   (dbfn/defdelete delete-fruit db (dbfn/sql "delete from fruit where id = :id"))
   (is (= '(1)) (delete-fruit :id 11))
   (is (= '(0)) (delete-fruit :id 11)))

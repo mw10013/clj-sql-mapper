@@ -4,9 +4,8 @@
 
 (def ^{:dynamic true} *exec-mode* false)
 
-(defn sql [spec sql]
-  (let [sql (if (string? sql) (sql/sql sql) sql)]
-    (update-in spec [:sql] (fnil conj []) sql)))
+(defn sql [spec & sqls]
+  (update-in spec [:sql] (fnil conj []) (apply sql/sql sqls)))
 
 (defn spec [base]
   (let [base (or base {})]

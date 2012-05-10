@@ -1,7 +1,7 @@
 (ns clj-sql-mapper.sql
   "Dynamic sql for Clojure with apologies to mybatis.
 
-   Use the sql macro to compile SQL represented as strings, vars,
+   Use the sql fn to compile SQL represented as strings, vars,
    and functions taking a param map.
 
    prepare takes a param map and turns compiled SQL into vector
@@ -11,19 +11,21 @@
   (:require [clojure.string :as str]))
 
 (defn- parse-str [s]
-  "Parses s to return a collection of strings, keywords, and vars."
+  "Parses s to return a collection of strings and keywords."
   (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-]+" #(str \" % \")) read-string eval))
 
 (defn- compile-sql [sql]
-  "Compiles sql into a list of strings, keywords, vars, and functions
-   taking a parameter map."
+  "Compiles sql into a list of strings, keywords, vars, colls,
+   and functions taking a parameter map.
+   Always returns a coll so sql can mapcat."
   (core-cond
    (string? sql) (parse-str sql)
-   (var? sql) (list sql)
-   :else (-> sql eval list)))
+   (or (fn? sql) (var? sql) (keyword? sql)) (list sql)
+   (coll? sql) sql
+   :else (throw (IllegalArgumentException. (str "sql/compile-sql: " sql)))))
 
 (defn sql [& args]
-  "Takes args of string, var, and code evaluating into a function taking
+  "Takes args of string, var, coll, and fns taking
    a parameter map argument.
 
    Strings are parsed into substrings and keywords
@@ -47,7 +49,7 @@
                 (string? x) (update-in prep-sql [0] str x)
                 (keyword? x) (-> prep-sql (update-in [0] str \?) (conj (m x)))
                 (var? x) (let [[s & rest] (prepare m @x)] (-> prep-sql (update-in [0] str s) (into rest)))
-                (fn? x) (do (def f x) (let [[s & rest] (x m)] (-> prep-sql (update-in [0] str s) (into rest))))
+                (fn? x) (let [[s & rest] (x m)] (-> prep-sql (update-in [0] str s) (into rest)))
                 (coll? x) (let [[s & rest] (prepare m x)] (-> prep-sql (update-in [0] str s) (into rest)))
                 :else (throw (IllegalArgumentException. (str "sql/prepare: can't handle " x " (" (type x) ") in " sql)))))
              [""] sql)))
