@@ -1,4 +1,4 @@
-(defproject clj-sql-mapper "0.0.5"
+(defproject clj-sql-mapper "0.0.6"
   :description "SQL for Clojure with apologies to mybatis"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [org.clojure/java.jdbc "0.1.4"]
