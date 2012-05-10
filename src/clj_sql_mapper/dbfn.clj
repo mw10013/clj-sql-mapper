@@ -7,6 +7,9 @@
 (defn sql [spec & sqls]
   (update-in spec [:sql] (fnil conj []) (apply sql/sql sqls)))
 
+(defn argkeys [spec argkeys]
+  (update-in spec [:argkeys] (fnil into []) argkeys))
+
 (defn spec [base]
   (let [base (or base {})]
     (if (:connection-spec base) {:db base} base)))
@@ -14,8 +17,16 @@
 (defmacro defspec [name base & body]
   `(def ~name (-> ~base spec ~@body)))
 
+(defn- args->param-map [argkeys & args]
+  (cond
+   argkeys (zipmap argkeys args)
+   (-> args first map?) (first args)
+   :else (apply hash-map args)))
+
+; (args->param-map [:appearance] "yellow")
+
 (defn select [spec & args]
-  (let [param-map (if (-> args first map?) (first args) (apply hash-map args))
+  (let [param-map (apply args->param-map (:argkeys spec) args)
         sql (sql/prepare param-map (:sql spec))]
     (cond
      (= *exec-mode* :sql) sql
@@ -28,7 +39,7 @@
      (def ~name (partial select spec#))))
 
 (defn- do-prepared [spec & args]
-  (let [param-map (if (-> args first map?) (first args) (apply hash-map args))
+  (let [param-map (apply args->param-map (:argkeys spec) args)
         sql (sql/prepare param-map (:sql spec))]
     (cond
      (= *exec-mode* :sql) sql
