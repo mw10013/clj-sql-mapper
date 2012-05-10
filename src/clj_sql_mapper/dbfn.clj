@@ -17,10 +17,11 @@
 (defn select [spec & args]
   (let [param-map (if (-> args first map?) (first args) (apply hash-map args))
         sql (sql/prepare param-map (:sql spec))]
-    (if (= *exec-mode* :sql)
-      sql
-      (db/with-db (:db spec)
-        (jdbc/with-query-results rs sql (vec rs))))))
+    (cond
+     (= *exec-mode* :sql) sql
+     (= *exec-mode* :spec) spec
+     :else (db/with-db (:db spec)
+             (jdbc/with-query-results rs sql (vec rs))))))
 
 (defmacro defselect [name spec & body]
   `(let [spec# (-> ~spec spec ~@body)]
@@ -29,10 +30,11 @@
 (defn- do-prepared [spec & args]
   (let [param-map (if (-> args first map?) (first args) (apply hash-map args))
         sql (sql/prepare param-map (:sql spec))]
-    (if (= *exec-mode* :sql)
-      sql
-      (db/with-db (:db spec)
-        (jdbc/do-prepared (first sql) (rest sql))))))
+    (cond
+     (= *exec-mode* :sql) sql
+     (= *exec-mode* :spec) spec
+     :else (db/with-db (:db spec)
+             (jdbc/do-prepared (first sql) (rest sql))))))
 
 (def insert do-prepared)
 
@@ -54,3 +56,6 @@
 
 (defmacro sql-only [& body]
   `(binding [*exec-mode* :sql] ~@body))
+
+(defmacro spec-only [& body]
+  `(binding [*exec-mode* :spec] ~@body))

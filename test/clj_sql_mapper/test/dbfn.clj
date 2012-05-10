@@ -71,6 +71,9 @@
   (is (= 2 (count (all-fruit))))
 
   (dbfn/defselect by-appearance fruit-base (dbfn/sql " where appearance = :appearance"))
+  (is (= ["select id, name, appearance from fruit where appearance = ?" "yellow"]
+         (dbfn/sql-only (by-appearance :appearance "yellow"))))
+  (is  (= 2 (-> (dbfn/spec-only (by-appearance :appearance "yellow")) :sql count)))
   (is (= 1 (count (by-appearance :appearance "yellow"))))
 
   (dbfn/defdelete delete-fruit db (dbfn/sql "delete from fruit where id = :id"))
