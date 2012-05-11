@@ -82,4 +82,22 @@
   (is (= '(1)) (delete-fruit :id 11))
   (is (= '(0)) (delete-fruit :id 11)))
 
+(deftest prepare-transform
+  (create-test-table :fruit)
+  (dbfn/definsert insert-fruit-1 db
+    (dbfn/argkeys [:id :name :appearance])
+    (dbfn/prepare (fn [m] (update-in m [:name] str "-1")))
+    (dbfn/sql "insert into fruit (id, name, appearance) values (:id, :name, :appearance)"))
+  (is (= '(1) (insert-fruit-1 111 "watermelon" "pink")))
+
+  (dbfn/defselect fruit-1 db
+    (dbfn/argkeys [:name])
+    (dbfn/prepare (fn [m] (update-in m [:name] str "-1")))
+    (dbfn/sql "select id, name, appearance from fruit where name = :name")
+    (dbfn/transform (fn [rs] (-> rs vec)))
+    (dbfn/transform (fn [rs]
+                      (let [rs (vec rs)]
+                        (update-in rs [0 :name] str "-2")))))
+  (is (= '[{:id 111 :name "watermelon-1-2" :appearance "pink"}])) (fruit-1 "watermelon"))
+
 ; (run-tests 'clj-sql-mapper.test.dbfn)
