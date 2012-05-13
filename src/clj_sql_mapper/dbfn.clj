@@ -4,8 +4,9 @@
 
 (def ^{:dynamic true} *exec-mode* false)
 
-(defn sql [spec & sqls]
-  (update-in spec [:sql] (fnil conj []) (apply sql/sql sqls)))
+(defn doc [spec s]
+  "Set the doc string to s."
+  (assoc-in spec [:doc] s))
 
 (defn argkeys [spec argkeys]
   "Set the collection of keys to zip map against the args
@@ -17,14 +18,25 @@
   [spec f]
   (assoc-in spec [:prepare-fn] f))
 
+(defn sql [spec & sqls]
+  (update-in spec [:sql] (fnil conj []) (apply sql/sql sqls)))
+
 (defn transform
   "Set function to be applied to restul set."
   [spec f]
   (assoc-in spec [:transform-fn] f))
 
-(defn spec [base]
-  (let [base (or base {})]
-    (if (:connection-spec base) {:db base} base)))
+(defn spec [base-specs]
+  "Make spec from base-specs.
+   If a base spec is a db spec, it will be put into the spec
+   with :db key. base-specs can by nil or a map."
+  (let [base-specs (cond
+                    (map? base-specs) [base-specs]
+                    (or (nil? base-specs) (empty? base-specs)) [{}]
+                    :else base-specs)
+        base-specs (map (fn [base]
+                          (if (:connection-spec base) {:db base} base)) base-specs)]
+    (apply merge base-specs)))
 
 (defmacro defspec [name base & body]
   `(def ~name (-> ~base spec ~@body)))
