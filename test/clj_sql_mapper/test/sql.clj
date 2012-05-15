@@ -30,39 +30,48 @@
                                (sql/when #(and (% :author) (% :title)) "and author like :author and title like :title")))))
   (is (= ["select * from table where title = ?" "the-title"]
          (let [select-table (sql/sql "select * from table")
-               where-title (sql/sql " where title = :title")]
+               where-title (sql/sql "where title = :title")]
            (sql/prepare {:title "the-title"} [select-table where-title])))))
 
+(deftest prepare-keyword
+  (is (= ["select * from table order by col1"] (sql/prepare {:col1 "col1"} (sql/sql "select * from table order by :col1!"))))
+  (is (= ["select * from table order by col1"]
+         (sql/prepare {:order "col1"} (sql/sql "select * from table" (sql/when :order "order by :order!")))))
+  (is (= ["select * from table order by col1, col2"]
+         (sql/prepare {:order "col1, col2"} (sql/sql "select * from table" (sql/when :order "order by :order!")))))
+  (is (= ["select * from table"]
+         (sql/prepare {} (sql/sql "select * from table" (sql/when :order "order by :order!"))))))
+
 (deftest vars
-  (is (= ["select col1, col2, col3 from table"] (sql/prepare {} (sql/sql "select " #'cols " from table"))))
+  (is (= ["select col1, col2, col3 from table"] (sql/prepare {} (sql/sql "select" #'cols "from table"))))
   (is (= ["select col1, col2, col3 from table where title = ?" "the-title"]
-         (sql/prepare {:title "the-title"} (sql/sql "select " #'cols " from table" (sql/where #'title))))))
+         (sql/prepare {:title "the-title"} (sql/sql "select" #'cols "from table" (sql/where #'title))))))
 
 (deftest sql-where
   #_(is (= ["" []] (sql/prepare {} (sql/sql (sql/where)))))
-  (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "title = :title")))))
-  (is (= [" where title = ?" "the-title"] (let [s "title = :title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where s))))))
-  (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "or title = :title")))))
-  (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "and title = :title")))))
-  (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where " or title = :title")))))
-  (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where " and title = :title")))))
-  (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "OR title = :title")))))
-  (is (= [" where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "AND title = :title")))))
-  (is (= [" where title = ?" "the-title"]
+  (is (= ["where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "title = :title")))))
+  (is (= ["where title = ?" "the-title"] (let [s "title = :title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where s))))))
+  (is (= ["where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "or title = :title")))))
+  (is (= ["where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "and title = :title")))))
+  (is (= ["where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where " or title = :title")))))
+  (is (= ["where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where " and title = :title")))))
+  (is (= ["where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "OR title = :title")))))
+  (is (= ["where title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/where "AND title = :title")))))
+  (is (= ["where title = ?" "the-title"]
          (sql/prepare {:title "the-title"} (sql/sql (sql/where (sql/when :author "and author = :author")
                                                                (sql/when :title "and title = :title"))))))
-  (is (= [" where author = ?" "clinton"]
+  (is (= ["where author = ?" "clinton"]
          (sql/prepare {:author "clinton"} (sql/sql (sql/where (sql/when :author "and author = :author")
                                                                (sql/when :title "and title = :title"))))))
-  (is (= [" where author = ? and title = ?" "clinton" "the-title"]
+  (is (= ["where author = ? and title = ?" "clinton" "the-title"]
          (sql/prepare {:author "clinton" :title "the-title"} (sql/sql (sql/where (sql/when :author "and author = :author")
                                                                                  (sql/when :title "and title = :title")))))) )
 
 (deftest sql-set
   (is (= ["update table set col1 = val1"] (sql/prepare {} (sql/sql "update table" (sql/set "col1 = val1,")))))
   (is (= ["update table set col1 = val1"] (sql/prepare {} (let [s "col1 = val1,"] (sql/sql "update table" (sql/set s))))))
-  (is (= [" set title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/set "title = :title,")))))
-  (is (= [" set title = ?, author = ?" "the-title" "clinton"]
+  (is (= ["set title = ?" "the-title"] (sql/prepare {:title "the-title"} (sql/sql (sql/set "title = :title,")))))
+  (is (= ["set title = ?, author = ?" "the-title" "clinton"]
          (sql/prepare {:title "the-title" :author "clinton"}
                       (sql/sql (sql/set (sql/when :title "title = :title,")
                                         (sql/when :author "author = :author,")))))))
@@ -82,9 +91,9 @@
                                                                                         s)))))))
 
 (deftest coll
-  (is (= [" ()"] (sql/prepare {} (sql/sql (sql/coll :coll)))))
-  (is (= [" (1, 2, 3)"] (sql/prepare {:coll [1 2 3]} (sql/sql (sql/coll :coll)))))
-  (is (= [" ('a', 'b', 'c')"] (sql/prepare {:coll [:a :b :c]} (sql/sql (sql/coll :coll)))))
-  (is (= [" ('a', 'b', 'c')"] (sql/prepare {:coll ["a" "b" "c"]} (sql/sql (sql/coll :coll))))))
+  (is (= ["()"] (sql/prepare {} (sql/sql (sql/coll :coll)))))
+  (is (= ["(1, 2, 3)"] (sql/prepare {:coll [1 2 3]} (sql/sql (sql/coll :coll)))))
+  (is (= ["('a', 'b', 'c')"] (sql/prepare {:coll [:a :b :c]} (sql/sql (sql/coll :coll)))))
+  (is (= ["('a', 'b', 'c')"] (sql/prepare {:coll ["a" "b" "c"]} (sql/sql (sql/coll :coll))))))
 
 ; (run-tests 'clj-sql-mapper.test.sql)

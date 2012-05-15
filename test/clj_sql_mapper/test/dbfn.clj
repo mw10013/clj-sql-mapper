@@ -87,8 +87,8 @@
 
     (is (= '(1)) (insert-fruit :id 22 :name "banana" :appearance "yellow" :cost 22 :grade 2.0))
 
-    (def cols (sql/sql " id, name, appearance "))
-    (def by-id (sql/sql " where id = :id"))
+    (def cols (sql/sql "id, name, appearance "))
+    (def by-id (sql/sql "where id = :id"))
     (dbfn/defselect select-by-id db (dbfn/sql "select" cols "from fruit" by-id))
     (is (= [{:id 22 :name "banana" :appearance "yellow"}] (select-by-id :id 22)))
 
@@ -98,7 +98,7 @@
 
     (dbfn/defselect by-appearance fruit-base
       (dbfn/argkeys [:appearance])
-      (dbfn/sql " where appearance = :appearance"))
+      (dbfn/sql "where appearance = :appearance"))
     (is (= ["select id, name, appearance from fruit where appearance = ?" "yellow"]
            (dbfn/sql-only (by-appearance "yellow"))))
     (is  (= 2 (-> (dbfn/spec-only (by-appearance "yellow")) :sql count)))

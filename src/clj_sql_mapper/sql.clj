@@ -12,7 +12,7 @@
 
 (defn- parse-str [s]
   "Parses s to return a collection of strings and keywords."
-  (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-]+" #(str \" % \")) read-string eval))
+  (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-!]+" #(str \" % \")) read-string eval))
 
 (defn- compile-sql [sql]
   "Compiles sql into a list of strings, keywords, vars, colls,
@@ -38,6 +38,21 @@
    vars."
   (->> args (mapcat compile-sql) (remove #(and (string? %) (str/blank? %)))))
 
+(defn str-space [x y]
+  "(str x y) with a space in between if the last char
+   of x is a letter or digit. If y is blank, returns x."
+  (if (str/blank? y)
+    x
+    (let [ch (last x)]
+      (if (and ch (Character/isLetterOrDigit ch))
+        (str x \space y)
+        (str x y)))))
+
+(defn prepare-keyword [m k prep-sql]
+  (if (= (-> k name last) \!)
+    (-> prep-sql (update-in [0] str-space (m (->> k name butlast (apply str) keyword))))
+    (-> prep-sql (update-in [0] str \?) (conj (m k)))))
+
 (defn prepare
   "Takes a param map and compiled sql.
    Returns a vector of SQL string with any bind vars and parameters.
@@ -46,11 +61,11 @@
   ([m sql]
      (reduce (fn [prep-sql x]
                (core-cond
-                (string? x) (update-in prep-sql [0] str x)
-                (keyword? x) (-> prep-sql (update-in [0] str \?) (conj (m x)))
-                (var? x) (let [[s & rest] (prepare m @x)] (-> prep-sql (update-in [0] str s) (into rest)))
-                (fn? x) (let [[s & rest] (x m)] (-> prep-sql (update-in [0] str s) (into rest)))
-                (coll? x) (let [[s & rest] (prepare m x)] (-> prep-sql (update-in [0] str s) (into rest)))
+                (string? x) (update-in prep-sql [0] str-space x)
+                (keyword? x) (prepare-keyword m x prep-sql)
+                (var? x) (let [[s & rest] (prepare m @x)] (-> prep-sql (update-in [0] str-space s) (into rest)))
+                (fn? x) (let [[s & rest] (x m)] (-> prep-sql (update-in [0] str-space s) (into rest)))
+                (coll? x) (let [[s & rest] (prepare m x)] (-> prep-sql (update-in [0] str-space s) (into rest)))
                 :else (throw (IllegalArgumentException. (str "sql/prepare: can't handle " x " (" (type x) ") in " sql)))))
              [""] sql)))
 
@@ -65,7 +80,7 @@
     (first (reduce (fn [[prep-sql first?] [s & rest]]
                      (let [s (if first? (str/replace s #"^\s*(?i:and|or)\s+" "") s)]
                        [(-> prep-sql (update-in [0] str " " s) (into rest)) false]))
-                   [[" where"] true] sqls))))
+                   [["where"] true] sqls))))
 
 (defmacro where
   "Compiles to sql that returns a where clause trimming and/or's as necessary."
@@ -76,7 +91,7 @@
   (let [sqls (->> sqls (map (partial prepare m)) (remove (comp str/blank? first)))]
     (-> (reduce (fn [[sql-str :as prep-sql] [s & rest]]
                   (-> prep-sql (update-in [0] str " " s) (into rest)))
-                [" set"] sqls)
+                ["set"] sqls)
         (update-in [0] str/replace #"\s*,\s*$" ""))))
 
 (defmacro set
@@ -94,7 +109,7 @@
 
 (defn prepare-coll [m k]
   (let [coll (->> k m (map #(if (or (string? %) (keyword? %)) (str \' (name %) \') %)) (interpose ", ") (apply str))]
-    [(str " (" coll \))]))
+    [(str "(" coll \))]))
 
 (defmacro coll
   "Compiles to sql that returns a sql collection for k in a param map.
