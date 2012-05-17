@@ -2,7 +2,9 @@
   (:require [clojure.java.jdbc :as jdbc]
             (clj-sql-mapper [sql :as sql] [db :as db])))
 
-(def ^{:dynamic true} *exec-mode* false)
+(def ^{:dynamic true :doc ":sql - return sql, :keywords - return keywords,
+  :keywords! - substitue values, otherwise exec sql"}
+  *exec-mode* nil)
 
 (defn doc [spec s]
   "Set the doc string to s."
@@ -49,28 +51,30 @@
         prepare-fn (or prepare-fn identity)]
     (prepare-fn param-map)))
 
+(defn- exec [spec f args]
+  (binding [sql/*keyword-mode* (if (#{:keywords :keywords!} *exec-mode*) *exec-mode* :sql)]
+    (let [param-map (args->param-map spec args)
+          sql (sql/prepare param-map (:sql spec))]
+      (cond
+       (#{:sql :keywords :keywords!} *exec-mode*) sql
+       (= *exec-mode* :spec) spec
+       :else (f spec sql)))))
+
 (defn select [spec & args]
-  (let [param-map (args->param-map spec args)
-        sql (sql/prepare param-map (:sql spec))]
-    (cond
-     (= *exec-mode* :sql) sql
-     (= *exec-mode* :spec) spec
-     :else (db/with-db (:db spec)
-             (jdbc/with-query-results rs sql
-               (if-let [transform-fn (:transform-fn spec)] (transform-fn rs) (vec rs)))))))
+  (exec spec
+        (fn [spec sql]
+          (jdbc/with-query-results rs sql
+            (if-let [transform-fn (:transform-fn spec)] (-> rs vec transform-fn) (vec rs))))
+        args))
 
 (defmacro defselect [name spec & body]
   `(let [spec# (-> ~spec spec ~@body)]
      (def ~name (partial select spec#))))
 
 (defn- do-prepared [spec & args]
-  (let [param-map (args->param-map spec args)
-        sql (sql/prepare param-map (:sql spec))]
-    (cond
-     (= *exec-mode* :sql) sql
-     (= *exec-mode* :spec) spec
-     :else (db/with-db (:db spec)
-             (jdbc/do-prepared (first sql) (rest sql))))))
+  (exec spec
+        (fn [spec sql] (jdbc/do-prepared (first sql) (rest sql)))
+        args))
 
 (def insert do-prepared)
 
@@ -92,6 +96,12 @@
 
 (defmacro sql-only [& body]
   `(binding [*exec-mode* :sql] ~@body))
+
+(defmacro keywords-only [& body]
+  `(binding [*exec-mode* :keywords] ~@body))
+
+(defmacro keywords!-only [& body]
+  `(binding [*exec-mode* :keywords!] ~@body))
 
 (defmacro spec-only [& body]
   `(binding [*exec-mode* :spec] ~@body))

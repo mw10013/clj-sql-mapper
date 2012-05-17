@@ -120,10 +120,19 @@
     (dbfn/argkeys [:name])
     (dbfn/prepare (fn [m] (update-in m [:name] str "-1")))
     (dbfn/sql "select id, name, appearance from fruit where name = :name")
-    (dbfn/transform (fn [rs] (-> rs vec)))
-    (dbfn/transform (fn [rs]
-                      (let [rs (vec rs)]
-                        (update-in rs [0 :name] str "-2")))))
+    (dbfn/transform (fn [rs] (update-in rs [0 :name] str "-2"))))
   (is (= '[{:id 111 :name "watermelon-1-2" :appearance "pink"}])) (fruit-1 "watermelon"))
+
+(deftest exec-modes
+  (dbfn/defselect fruit-modes db
+    (dbfn/argkeys [:name :cost])
+    (dbfn/sql "select * from fruit where name = :name and cost = :cost"))
+  (is (= ["select * from fruit where name = ? and cost = ?" "kiwi" 1])
+      (dbfn/sql-only (fruit-modes "kiwi" 1)))
+  (is (= ["select * from fruit where name = ? and cost = ?" :name :cost])
+      (dbfn/keywords-only (fruit-modes "kiwi" 1)))
+  (is (= ["select * from fruit where name = 'kiwi' and cost = 1"])
+      (dbfn/keywords!-only (fruit-modes "kiwi" 1)))
+  (is (map? (dbfn/spec-only (fruit-modes "kiwi" 1)))))
 
 ; (run-tests 'clj-sql-mapper.test.dbfn)

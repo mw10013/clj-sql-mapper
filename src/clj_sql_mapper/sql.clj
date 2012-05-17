@@ -10,6 +10,10 @@
   (:refer-clojure :rename {when core-when set core-set cond core-cond})
   (:require [clojure.string :as str]))
 
+(def ^{:dynamic true :doc ":sql - bind vars, :keywords - return keywords,
+  :keywords! - substitute values."}
+  *keyword-mode* :sql)
+
 (defn- parse-str [s]
   "Parses s to return a collection of strings and keywords."
   (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-!]+" #(str \" % \")) read-string eval))
@@ -48,10 +52,21 @@
         (str x \space y)
         (str x y)))))
 
-(defn prepare-keyword [m k prep-sql]
+(defn- prepare-keyword
+  "If keyword k ends with ! then substitute the corresponding value of k without the !
+   into prep-sql. Otherwise use *keyword-mode*,
+   :sql - bind var
+   :keywords - keyword as bind var
+   :keywords! - value as bind var"
+  [prep-sql m k]
   (if (= (-> k name last) \!)
     (-> prep-sql (update-in [0] str-space (m (->> k name butlast (apply str) keyword))))
-    (-> prep-sql (update-in [0] str \?) (conj (m k)))))
+    (condp = *keyword-mode*
+      :sql (-> prep-sql (update-in [0] str \?) (conj (m k)))
+      :keywords (-> prep-sql (update-in [0] str \?) (conj k))
+      :keywords! (let [v (m k)
+                       v (if (string? v) (str \' v \') v)]
+                   (update-in prep-sql [0] str v)))))
 
 (defn prepare
   "Takes a param map and compiled sql.
@@ -62,7 +77,7 @@
      (reduce (fn [prep-sql x]
                (core-cond
                 (string? x) (update-in prep-sql [0] str-space x)
-                (keyword? x) (prepare-keyword m x prep-sql)
+                (keyword? x) (prepare-keyword prep-sql m x )
                 (var? x) (let [[s & rest] (prepare m @x)] (-> prep-sql (update-in [0] str-space s) (into rest)))
                 (fn? x) (let [[s & rest] (x m)] (-> prep-sql (update-in [0] str-space s) (into rest)))
                 (coll? x) (let [[s & rest] (prepare m x)] (-> prep-sql (update-in [0] str-space s) (into rest)))
