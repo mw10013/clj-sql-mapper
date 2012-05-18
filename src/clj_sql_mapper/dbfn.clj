@@ -58,7 +58,7 @@
       (cond
        (#{:sql :keywords :keywords!} *exec-mode*) sql
        (= *exec-mode* :spec) spec
-       :else (f spec sql)))))
+       :else (db/with-db (:db spec) (f spec sql))))))
 
 (defn select [spec & args]
   (exec spec

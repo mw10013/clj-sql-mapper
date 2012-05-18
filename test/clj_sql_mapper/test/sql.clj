@@ -15,9 +15,13 @@
 
 (deftest sql-when
   (is (= ["where title = ?" "the-title"] ((sql/when :title "where title = :title") {:title "the-title"})))
+  (is (= ["where title = ''"] ((sql/when (complement :title) "where title = ''") {})))
+  (is (= nil ((sql/when (complement :title) "where title = ''") {:title "the-title"})))
   (is (= ["where title = ?" "the-title"] (let [s "where title = :title"] ((sql/when :title s) {:title "the-title"}))))
   (is (= ["where title = ?" "the-title"] ((sql/when :title #'where-title) {:title "the-title"})))
   (is (= ["where title = ?" "the-title"] ((sql/when #(:title %) "where title = :title") {:title "the-title"})))
+  (is (= ["where title = ?" "the-title"] ((sql/when (fn [m] (:title m)) "where title = :title") {:title "the-title"})))
+  (is (= nil ((sql/when #(:title %) "where title = :title") {})))
   (is (= ["where title = ?" "the-title"] ((sql/when identity "where title = :title") {:title "the-title"}))))
 
 (deftest prepare

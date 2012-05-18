@@ -90,6 +90,11 @@
   (let [predicate (if (seq? predicate) predicate (list predicate))]
     `(fn [param-map#] (core-when (~@predicate param-map#) (prepare param-map# (sql ~@sqls))))))
 
+(defmacro when [& [predicate & sqls]]
+  "Compiles to sql that returns prepared sqls if predicate
+   returns truthy against a param map."
+  `(fn [param-map#] (core-when (~predicate param-map#) (prepare param-map# (sql ~@sqls)))))
+
 (defn prepare-where [param-map sqls]
   (when-let [sqls (->> sqls (map (partial prepare param-map)) (remove (comp str/blank? first)) seq)]
     (first (reduce (fn [[prep-sql first?] [s & rest]]
