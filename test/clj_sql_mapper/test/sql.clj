@@ -105,6 +105,8 @@
   (is (= ["?,?,?" 1 3 2]) (sql/prepare {:a 1 :b 2 :c 3} (sql/sql sql/param-vals)))
   (is (= ["insert into table (a,c,b) values (?,?,?)" 1 3 2]
          (sql/prepare {:a 1 :b 2 :c 3} (sql/sql "insert into table (" sql/param-keys ") values (" sql/param-vals ")"))))
+  (is (= ["insert into table (pk,a,c,b) values (seq.nextval,?,?,?)" 1 3 2]
+         (sql/prepare {:a 1 :b 2 :c 3} (sql/sql "insert into table (pk," sql/param-keys ") values (seq.nextval," sql/param-vals ")"))))
   (binding [sql/*keyword-mode* :keywords]
     (is (= ["insert into table (a,c,b) values (:a,:c,:b"])
         (sql/prepare {:a 1 :b 2 :c 3} (sql/sql "insert into table (" sql/param-keys ") values (" sql/param-vals ")"))))

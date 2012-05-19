@@ -1,6 +1,7 @@
 (ns clj-sql-mapper.dbfn
   (:require [clojure.java.jdbc :as jdbc]
-            (clj-sql-mapper [sql :as sql] [db :as db])))
+            (clj-sql-mapper [sql :as sql] [db :as db]))
+  (:import java.sql.PreparedStatement))
 
 (def ^{:dynamic true :doc ":sql - return sql, :keywords - return keywords,
   :keywords! - substitue values, otherwise exec sql"}
@@ -22,6 +23,11 @@
 
 (defn sql [spec & sqls]
   (update-in spec [:sql] (fnil conj []) (apply sql/sql sqls)))
+
+(defn generated-keys
+  "Set the generated keys."
+  [spec ks]
+  (assoc-in spec [:generated-keys] ks))
 
 (defn transform
   "Set function to be applied to restul set."
@@ -71,9 +77,27 @@
   `(let [spec# (-> ~spec spec ~@body)]
      (def ~name (partial select spec#))))
 
+(defn- set-parameters
+  "Add the parameters to the given statement."
+  [^PreparedStatement pstmt params]
+  (dorun (map-indexed (fn [index v] (.setObject pstmt (inc index) v)) params)))
+
+(defn- do-prepared-generated-keys [spec sql]
+  (let [key-cols (->> spec :generated-keys (map jdbc/as-identifier) into-array)]
+    (with-open [^PreparedStatement pstmt (.prepareStatement (jdbc/connection) (first sql) key-cols)]
+      (set-parameters pstmt (rest sql))
+      (jdbc/transaction
+       (.executeUpdate pstmt)
+       (with-open [rs (.getGeneratedKeys pstmt)]
+         (let [transform-fn (or (:transform-fn spec) identity)]
+           (-> rs jdbc/resultset-seq vec transform-fn)))))))
+
 (defn- do-prepared [spec & args]
   (exec spec
-        (fn [spec sql] (jdbc/do-prepared (first sql) (rest sql)))
+        (fn [spec sql]
+          (cond
+           (:generated-keys spec) (do-prepared-generated-keys spec sql)
+           :else (jdbc/do-prepared (first sql) (rest sql))))
         args))
 
 (def insert do-prepared)

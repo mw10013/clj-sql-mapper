@@ -122,6 +122,15 @@
     (dbfn/transform (fn [rs] (update-in rs [0 :name] str "-2"))))
   (is (= '[{:id 111 :name "watermelon-1-2" :appearance "pink"}])) (fruit-1 "watermelon"))
 
+(deftest generated-keys
+  (create-test-table :fruit)
+  (dbfn/definsert insert-generated-key db
+    (dbfn/argkeys [:id :name :appearance])
+    (dbfn/generated-keys [:ID]) ; hsqldb cap rules.
+    (dbfn/sql "insert into fruit (" sql/param-keys ") values (" sql/param-vals ")"))
+  (dbfn/sql-only (insert-generated-key 1 "apple" "red"))
+  (is (= [{:id 1}] (insert-generated-key 1 "apple" "red"))))
+
 (deftest exec-modes
   (dbfn/defselect fruit-modes db
     (dbfn/argkeys [:name :cost])
