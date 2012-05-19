@@ -8,7 +8,8 @@
    containing the corresponding SQL string and params.
    The vector is suitable for clojure.java.jdbc/with-query-results."
   (:refer-clojure :rename {when core-when set core-set cond core-cond})
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [clojure.java.jdbc :as jdbc]))
 
 (def ^{:dynamic true :doc ":sql - bind vars, :keywords - return keywords,
   :keywords! - substitute values."}
@@ -44,11 +45,12 @@
 
 (defn str-space [x y]
   "(str x y) with a space in between if the last char
-   of x is a letter or digit. If y is blank, returns x."
+   of x is a letter or digit and the first char of y is not ).
+   If y is blank, returns x."
   (if (str/blank? y)
     x
     (let [ch (last x)]
-      (if (and ch (Character/isLetterOrDigit ch))
+      (if (and ch (Character/isLetterOrDigit ch) (not= (first y) \)))
         (str x \space y)
         (str x y)))))
 
@@ -128,12 +130,23 @@
   `(fn [param-map#] (prepare-cond param-map# (map sql (list ~@sqls)))))
 
 (defn prepare-coll [m k]
-  (let [coll (->> k m (map #(if (or (string? %) (keyword? %)) (str \' (name %) \') %)) (interpose ", ") (apply str))]
+  (let [coll (->> k m (map #(if (or (string? %) (keyword? %)) (str \' (name %) \') %)) (interpose \,) (apply str))]
     [(str "(" coll \))]))
 
 (defmacro coll
   "Compiles to sql that returns a sql collection for k in a param map.
    If k corresponding to [:a :b :c] the sql collection would be
-   ('a', 'b', 'c')."
+   ('a','b','c')."
   [k]
   `(fn [param-map#] (prepare-coll param-map# ~k)))
+
+(defn param-keys [m]
+  [(apply str (interpose \, (map jdbc/as-identifier (keys m))))])
+
+(defn param-vals [m]
+  (reduce (fn [prep-sql x]
+            (if (keyword? x)
+              (prepare-keyword prep-sql m x)
+              (update-in prep-sql [0] str x)))
+          [""] (->> m keys (interpose \,))))
+

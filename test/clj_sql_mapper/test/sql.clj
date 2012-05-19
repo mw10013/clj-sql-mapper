@@ -96,8 +96,23 @@
 
 (deftest coll
   (is (= ["()"] (sql/prepare {} (sql/sql (sql/coll :coll)))))
-  (is (= ["(1, 2, 3)"] (sql/prepare {:coll [1 2 3]} (sql/sql (sql/coll :coll)))))
-  (is (= ["('a', 'b', 'c')"] (sql/prepare {:coll [:a :b :c]} (sql/sql (sql/coll :coll)))))
-  (is (= ["('a', 'b', 'c')"] (sql/prepare {:coll ["a" "b" "c"]} (sql/sql (sql/coll :coll))))))
+  (is (= ["(1,2,3)"] (sql/prepare {:coll [1 2 3]} (sql/sql (sql/coll :coll)))))
+  (is (= ["('a','b','c')"] (sql/prepare {:coll [:a :b :c]} (sql/sql (sql/coll :coll)))))
+  (is (= ["('a','b','c')"] (sql/prepare {:coll ["a" "b" "c"]} (sql/sql (sql/coll :coll))))))
+
+(deftest params
+  (is (= ["a,c,b"] (sql/prepare {:a 1 :b 2 :c 3} (sql/sql sql/param-keys))))
+  (is (= ["?,?,?" 1 3 2]) (sql/prepare {:a 1 :b 2 :c 3} (sql/sql sql/param-vals)))
+  (is (= ["insert into table (a,c,b) values (?,?,?)" 1 3 2]
+         (sql/prepare {:a 1 :b 2 :c 3} (sql/sql "insert into table (" sql/param-keys ") values (" sql/param-vals ")"))))
+  (binding [sql/*keyword-mode* :keywords]
+    (is (= ["insert into table (a,c,b) values (:a,:c,:b"])
+        (sql/prepare {:a 1 :b 2 :c 3} (sql/sql "insert into table (" sql/param-keys ") values (" sql/param-vals ")"))))
+  (binding [sql/*keyword-mode* :keywords!]
+    (is (= ["insert into table (a,c,b) values (1,3,2"])
+        (sql/prepare {:a 1 :b 2 :c 3} (sql/sql "insert into table (" sql/param-keys ") values (" sql/param-vals ")"))))
+  (binding [sql/*keyword-mode* :keywords!]
+    (is (= ["insert into table (a,c,b) values ('fee','fie','foe'"])
+        (sql/prepare {:a "fee" :b "fie" :c "foe"} (sql/sql "insert into table (" sql/param-keys ") values (" sql/param-vals ")")))))
 
 ; (run-tests 'clj-sql-mapper.test.sql)
