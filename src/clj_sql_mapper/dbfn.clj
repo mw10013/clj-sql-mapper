@@ -49,22 +49,31 @@
 (defmacro defspec [name base & body]
   `(def ~name (-> ~base spec ~@body)))
 
-(defn- args->param-map [{:keys [argkeys prepare-fn]} args]
-  (let [param-map (cond
-                   argkeys (zipmap argkeys args)
-                   (-> args first map?) (first args)
-                   :else (apply hash-map args))
+(defn- args->param-maps [{:keys [argkeys prepare-fn]} args]
+  (let [param-maps (cond
+                   argkeys [(zipmap argkeys args)]
+                   (-> args first keyword?) [(apply hash-map args)]
+                   (-> args first map?) args ; 1 or more maps
+                   :else (first args)) ; coll of maps
         prepare-fn (or prepare-fn identity)]
-    (prepare-fn param-map)))
+    (map prepare-fn param-maps)))
+
+(defn- prepare-sql [{sql :sql} param-maps]
+  (if (<= (count param-maps) 1)
+    (binding [sql/*keyword-mode* (if (#{:keywords :keywords!} *exec-mode*) *exec-mode* :sql)]
+      (sql/prepare (first param-maps) sql))
+    (binding [sql/*keyword-mode* :keywords]
+      (let [sql (sql/prepare (first param-maps) sql)
+            keywords (rest sql)]
+        (list* (first sql) (map (apply juxt keywords) param-maps))))))
 
 (defn- exec [spec f args]
-  (binding [sql/*keyword-mode* (if (#{:keywords :keywords!} *exec-mode*) *exec-mode* :sql)]
-    (let [param-map (args->param-map spec args)
-          sql (sql/prepare param-map (:sql spec))]
-      (cond
-       (#{:sql :keywords :keywords!} *exec-mode*) sql
-       (= *exec-mode* :spec) spec
-       :else (db/with-db (:db spec) (f spec sql))))))
+  (let [param-maps (args->param-maps spec args)
+        sql (prepare-sql spec param-maps)]
+    (cond
+     (#{:sql :keywords :keywords!} *exec-mode*) sql
+     (= *exec-mode* :spec) spec
+     :else (db/with-db (:db spec) (f spec sql)))))
 
 (defn select [spec & args]
   (exec spec
@@ -97,6 +106,7 @@
         (fn [spec sql]
           (cond
            (:generated-keys spec) (do-prepared-generated-keys spec sql)
+           (-> sql second coll?) (apply jdbc/do-prepared (first sql) (rest sql))
            :else (jdbc/do-prepared (first sql) (rest sql))))
         args))
 

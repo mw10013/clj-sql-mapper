@@ -128,8 +128,16 @@
     (dbfn/argkeys [:id :name :appearance])
     (dbfn/generated-keys [:ID]) ; hsqldb cap rules.
     (dbfn/sql "insert into fruit (" sql/param-keys ") values (" sql/param-vals ")"))
-  (dbfn/sql-only (insert-generated-key 1 "apple" "red"))
   (is (= [{:id 1}] (insert-generated-key 1 "apple" "red"))))
+
+(deftest insert-multiple
+  (create-test-table :fruit)
+  (dbfn/definsert insert-multiple db
+    (dbfn/sql "insert into fruit (" sql/param-keys ") values (" sql/param-vals ")"))
+  (is (= '(1) (insert-multiple {:id 1 :name "apple" :appearance "red"})))
+  (is (= '(1) (insert-multiple :id 1 :name "apple" :appearance "red")))
+  (is (= '(1 1) (insert-multiple {:id 1 :name "apple" :appearance "red"} {:id 2 :name "orange" :appearance "orange"})))
+  (is (= '(1 1) (insert-multiple [{:id 1 :name "apple" :appearance "red"} {:id 2 :name "orange" :appearance "orange"}]))))
 
 (deftest exec-modes
   (dbfn/defselect fruit-modes db
