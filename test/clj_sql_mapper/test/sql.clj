@@ -9,8 +9,10 @@
 (deftest sql
   (is (= '("select * from table") (sql/sql "select * from table")))
   (is (= '("select * from table") (let [s "select * from table"] (sql/sql s))))
+  (is (= "xmlelement\"element_name\", element)") (sql/sql "xmlelement(\\\"element_name\\\", element)"))
   (is (= '("select * from table where title = " :title) (sql/sql "select * from table where title = :title")))
   (is (= (list "select " #'cols " from table") (sql/sql "select " #'cols " from table")))
+  (is (= (list "select " cols " from table")) (sql/sql "select " cols " from table"))
   (is (= #'where-title) (sql/sql "#'where-title")))
 
 (deftest sql-when

@@ -19,6 +19,9 @@
   "Parses s to return a collection of strings and keywords."
   (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-!]+" #(str \" % \")) read-string eval))
 
+; (parse-str "xmlelement(\"title\", :title)")
+; (parse-str "xmlelement(\\\"title\\\", :title)")
+
 (defn- compile-sql [sql]
   "Compiles sql into a list of strings, keywords, vars, colls,
    and functions taking a parameter map.
@@ -29,18 +32,19 @@
    (coll? sql) sql
    :else (throw (IllegalArgumentException. (str "sql/compile-sql: " sql)))))
 
-(defn sql [& args]
+(defn sql
   "Takes args of string, var, coll, and fns taking
    a parameter map argument.
 
    Strings are parsed into substrings and keywords
    Eg. \"select * from table where title = :title\" parses into
-   \"select \" * \" from table where title = \" :title
+   \"select * from table where title = \" :title
 
    Returns collection of 'compiled' sql as strings, keywords, vars, and
    functions taking a parameter map argument. Run the collection through
    prepare with a param map to get the corresponding SQL string with bind
    vars."
+  [& args]
   (->> args (mapcat compile-sql) (remove #(and (string? %) (str/blank? %)))))
 
 (defn str-space [x y]
