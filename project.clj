@@ -1,4 +1,4 @@
-(defproject clj-sql-mapper "0.0.12"
+(defproject clj-sql-mapper "0.0.13"
   :description "SQL for Clojure with apologies to mybatis"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [org.clojure/core.incubator "0.1.1"]

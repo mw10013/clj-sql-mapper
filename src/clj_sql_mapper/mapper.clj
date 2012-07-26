@@ -100,11 +100,6 @@
                                     {:row-key :cs :match-val-fn :c :ks [:c]}]}
                         [{:a 1 :b 1} {:a 1 :b 2} {:a 2 :b 1} {:a 2 :c 3}]))
   
-  (println (reduce-rows [{:path [:as] :match-val-fn :a :row-key :as :ks [:a]}
-                         {:path [:as :bs] :match-val-fn :b :row-key :bs :ks [:b]}
-                         {:path [:as :cs] :match-val-fn :c :row-key :cs :ks [:c]}]
-                        [{:a 1 :b 1} {:a 1 :b 2} {:a 2 :b 1} {:a 2 :c 3}]))
-  
   (apply-mappings [(fn [m] (update-in m [:a] inc))] {:a 1})
   (apply-mappings nil {:a 1})
   (apply-mappings [(fn [m] (update-in m [:a] inc))] [{:a 1} {:a 11}])
@@ -113,14 +108,4 @@
   (apply-mappings [(make-mapping inc :a :b)] [{:a 1 :b 2} {:a 11 :b 22}])
 
   (make-mappings [:a :b] inc dec)
-
-  (def m {:row-key :as :match-val-fn :a :ks [:a]
-          :children [{:row-key :bs :match-val-fn :b :ks [:b]
-                      :children [{:row-key :bbs}
-                                 {:row-key :bb1s}]}
-                           {:row-key :cs :match-val-fn :c :ks [:c]}]})
-
-  
-
-  (matchers m)
 )
