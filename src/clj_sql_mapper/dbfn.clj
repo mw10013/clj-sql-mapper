@@ -134,7 +134,7 @@
 (defmacro keywords-only [& body]
   `(binding [*exec-mode* :keywords] ~@body))
 
-(defmacro keywords!-only [& body]
+(defmacro keywords-only! [& body]
   `(binding [*exec-mode* :keywords!] ~@body))
 
 (defmacro spec-only [& body]

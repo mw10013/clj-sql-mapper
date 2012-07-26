@@ -148,7 +148,7 @@
   (is (= ["select * from fruit where name = ? and cost = ?" :name :cost])
       (dbfn/keywords-only (fruit-modes "kiwi" 1)))
   (is (= ["select * from fruit where name = 'kiwi' and cost = 1"])
-      (dbfn/keywords!-only (fruit-modes "kiwi" 1)))
+      (dbfn/keywords-only! (fruit-modes "kiwi" 1)))
   (is (map? (dbfn/spec-only (fruit-modes "kiwi" 1)))))
 
 ; (run-tests 'clj-sql-mapper.test.dbfn)
