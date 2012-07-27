@@ -19,6 +19,29 @@
           (mpr/reduce-rows {:row-key :as :match-val-fn :a :ks [:a]
                             :children [{:row-key :bs :match-val-fn :b :ks [:b]}
                                        {:row-key :cs :match-val-fn :c :ks [:c]}]}
-                           [{:a 1 :b 1} {:a 1 :b 2} {:a 2 :b 1} {:a 2 :c 3}]))))
+                           [{:a 1 :b 1} {:a 1 :b 2} {:a 2 :b 1} {:a 2 :c 3}])))
+  (is (=  {:as [{:a 1 :cs [{:c 1 :ds [{:d 1}]}]}]}
+          (mpr/reduce-rows {:row-key :as :match-val-fn :a :ks [:a]
+                            :children [{:row-key :bs :match-val-fn :b :ks [:b]}
+                                       {:row-key :cs :match-val-fn :c :ks [:c]
+                                        :children [{:row-key :ds :match-val-fn :d :ks [:d]}]}]}
+                           [{:a 1 :c 1 :d 1}])))
+  (is (=  {:as [{:a 1 :cs [{:c 1 :ds [{:d 1} {:d 2}]}]}]}
+          (mpr/reduce-rows {:row-key :as :match-val-fn :a :ks [:a]
+                            :children [{:row-key :bs :match-val-fn :b :ks [:b]}
+                                       {:row-key :cs :match-val-fn :c :ks [:c]
+                                        :children [{:row-key :ds :match-val-fn :d :ks [:d]}]}]}
+                           [{:a 1 :c 1 :d 1} {:a 1 :c 1 :d 2}])))
+  (is (=  {:as [{:a 1 :bs [{:b 1}] :cs [{:c 1 :ds [{:d 1} {:d 2}]}]}]}
+          (mpr/reduce-rows {:row-key :as :match-val-fn :a :ks [:a]
+                            :children [{:row-key :bs :match-val-fn :b :ks [:b]}
+                                       {:row-key :cs :match-val-fn :c :ks [:c]
+                                        :children [{:row-key :ds :match-val-fn :d :ks [:d]}]}]}
+                           [{:a 1 :c 1 :d 1} {:a 1 :c 1 :d 2} {:a 1 :b 1}])))
+  (is (=  {:as [{:a 1 :bs [{:b 2 :cs [{:c 3}]}]} {:a 2 :bs [{:b 2 :cs [{:c 3}]}]}]}
+          (mpr/reduce-rows {:row-key :as :match-val-fn :a :ks [:a]
+                            :children [{:row-key :bs :match-val-fn :b :ks [:b]
+                                        :children [{:row-key :cs :match-val-fn :c :ks [:c]}]}]}
+                           [ {:a 1 :b 2 :c 3} {:a 2 :b 2 :c 3} ]))))
 
 ; (run-tests)

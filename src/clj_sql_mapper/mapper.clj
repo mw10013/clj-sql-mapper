@@ -59,7 +59,7 @@
          (if (nil? v)
            (dissoc-in m match-path)
            (-> m
-               (update-in match-path (fnil assoc {}) ::v v)
+               (assoc-in match-path {::v v})
                (update-in (result-path m path) (fnil conj [])
                           (apply-mappings mappings (select-keys r ks))))))))
    m (:matchers m)))
@@ -95,6 +95,11 @@
   (:result (reduce reduce-row {:matchers (matchers m)} rows)))
 
 (comment
+  (reduce-rows {:row-key :as :match-val-fn :a :ks [:a]
+                          :children [{:row-key :bs :match-val-fn :b :ks [:b]
+                                      :children [{:row-key :cs :match-val-fn :c :ks [:c]}]}]}
+                         [{:a 1 :b 1 :c 1} {:a 2 :b 1 :c 1}])
+  
   (println (reduce-rows {:row-key :as :match-val-fn :a :ks [:a]
                          :children [{:row-key :bs :match-val-fn :b :ks [:b]}
                                     {:row-key :cs :match-val-fn :c :ks [:c]}]}
