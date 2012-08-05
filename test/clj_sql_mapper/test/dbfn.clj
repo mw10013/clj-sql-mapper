@@ -1,7 +1,7 @@
 (ns clj-sql-mapper.test.dbfn
   (:use clojure.test)
   (:require [clojure.java.jdbc :as jdbc]
-            [clj-sql-mapper [sql :as sql] [db :as db] [dbfn :as dbfn]]))
+            [clj-sql-mapper [sql :as sql] [db :as db] [dbfn :as d]]))
 
 (defonce db (db/create-db {:datasource-spec {:classname "org.hsqldb.jdbcDriver"
                                              :subprotocol "hsqldb"
@@ -49,38 +49,38 @@
 (deftest base-specs
   (declare base-spec arg-spec)
   
-   (dbfn/defspec test-db-spec nil
+   (d/defspec test-db-spec nil
     (#(is (empty? %))))
   
-  (dbfn/defspec test-db-spec db
+  (d/defspec test-db-spec db
     ((fn [spec] (is (= db (:db spec))) spec)))
     
-  (dbfn/defspec base-spec test-db-spec
+  (d/defspec base-spec test-db-spec
     ((fn [spec] (is (= db (:db spec))) spec)))
 
-  (dbfn/defspec arg-spec nil
-    (dbfn/argkeys [:a :b :c])
+  (d/defspec arg-spec nil
+    (d/argkeys [:a :b :c])
     ((fn [spec] (is (= [:a :b :c] (:argkeys spec))) spec)))
 
-  (dbfn/defspec doc-spec nil
-    (dbfn/doc "a doc string")
+  (d/defspec doc-spec nil
+    (d/doc "a doc string")
     ((fn [spec] (is (= "a doc string" (:doc spec))) spec)))
 
-  (dbfn/defspec db-and-args [base-spec arg-spec]
-    (dbfn/doc "a doc string")
+  (d/defspec db-and-args [base-spec arg-spec]
+    (d/doc "a doc string")
     ((fn [spec] (is (= db (:db spec))) spec))
     ((fn [spec] (is (= [:a :b :c] (:argkeys spec))) spec))))
 
 (deftest inline-sql
   (create-test-table :fruit)
-  (dbfn/definsert insert-fruit db (dbfn/sql "insert into fruit (id, name, appearance, cost, grade) values (:id, :name, :appearance, :cost, :grade)"))
+  (d/definsert insert-fruit db (d/sql "insert into fruit (id, name, appearance, cost, grade) values (:id, :name, :appearance, :cost, :grade)"))
   (is (= '(1) (insert-fruit :id 11 :name "apple" :appearance "red" :cost 1 :grade 1.0)))
 
-  (dbfn/defselect fruit db (dbfn/sql "select * from fruit"))
-  (is (= ["select * from fruit"] (dbfn/sql-only (fruit))))
+  (d/defselect fruit db (d/sql "select * from fruit"))
+  (is (= ["select * from fruit"] (d/sql-only (fruit))))
   (is (= [{:id 11, :name "apple", :appearance "red", :cost 1, :grade 1.0}] (fruit)))
 
-  (dbfn/defupdate update-fruit db (dbfn/sql "update fruit set name = :name, appearance = :appearance where id = :id"))
+  (d/defupdate update-fruit db (d/sql "update fruit set name = :name, appearance = :appearance where id = :id"))
   (is (= '(1) (update-fruit :id 11 :name "orange" :appearance "orangy")))
   (is (= '(0) (update-fruit :id 12 :name "orange" :appearance "orangy")))
 
@@ -88,67 +88,67 @@
 
   (def cols (sql/sql "id, name, appearance "))
   (def by-id (sql/sql "where id = :id"))
-  (dbfn/defselect select-by-id db (dbfn/sql "select" cols "from fruit" by-id))
+  (d/defselect select-by-id db (d/sql "select" cols "from fruit" by-id))
   (is (= [{:id 22 :name "banana" :appearance "yellow"}] (select-by-id :id 22)))
 
-  (dbfn/defspec fruit-base db (dbfn/sql "select" cols "from fruit"))
-  (dbfn/defselect all-fruit fruit-base)
+  (d/defspec fruit-base db (d/sql "select" cols "from fruit"))
+  (d/defselect all-fruit fruit-base)
   (is (= 2 (count (all-fruit))))
 
-  (dbfn/defselect by-appearance fruit-base
-    (dbfn/argkeys [:appearance])
-    (dbfn/sql "where appearance = :appearance"))
+  (d/defselect by-appearance fruit-base
+    (d/argkeys [:appearance])
+    (d/sql "where appearance = :appearance"))
   (is (= ["select id, name, appearance from fruit where appearance = ?" "yellow"]
-         (dbfn/sql-only (by-appearance "yellow"))))
-  (is  (= 2 (-> (dbfn/spec-only (by-appearance "yellow")) :sql count)))
+         (d/sql-only (by-appearance "yellow"))))
+  (is  (= 2 (-> (d/spec-only (by-appearance "yellow")) :sql count)))
   (is (= 1 (count (by-appearance "yellow"))))
 
-  (dbfn/defdelete delete-fruit db (dbfn/sql "delete from fruit where id = :id"))
+  (d/defdelete delete-fruit db (d/sql "delete from fruit where id = :id"))
   (is (= '(1)) (delete-fruit :id 11))
   (is (= '(0)) (delete-fruit :id 11)))
 
 (deftest prepare-transform
   (create-test-table :fruit)
-  (dbfn/definsert insert-fruit-1 db
-    (dbfn/argkeys [:id :name :appearance])
-    (dbfn/prepare (fn [m] (update-in m [:name] str "-1")))
-    (dbfn/sql "insert into fruit (id, name, appearance) values (:id, :name, :appearance)"))
+  (d/definsert insert-fruit-1 db
+    (d/argkeys [:id :name :appearance])
+    (d/prepare (fn [m] (update-in m [:name] str "-1")))
+    (d/sql "insert into fruit (id, name, appearance) values (:id, :name, :appearance)"))
   (is (= '(1) (insert-fruit-1 111 "watermelon" "pink")))
 
-  (dbfn/defselect fruit-1 db
-    (dbfn/argkeys [:name])
-    (dbfn/prepare (fn [m] (update-in m [:name] str "-1")))
-    (dbfn/sql "select id, name, appearance from fruit where name = :name")
-    (dbfn/transform (fn [rs] (update-in rs [0 :name] str "-2"))))
+  (d/defselect fruit-1 db
+    (d/argkeys [:name])
+    (d/prepare (fn [m] (update-in m [:name] str "-1")))
+    (d/sql "select id, name, appearance from fruit where name = :name")
+    (d/transform (fn [rs] (update-in rs [0 :name] str "-2"))))
   (is (= '[{:id 111 :name "watermelon-1-2" :appearance "pink"}])) (fruit-1 "watermelon"))
 
 (deftest generated-keys
   (create-test-table :fruit)
-  (dbfn/definsert insert-generated-key db
-    (dbfn/argkeys [:id :name :appearance])
-    (dbfn/generated-keys [:ID]) ; hsqldb cap rules.
-    (dbfn/sql "insert into fruit (" sql/param-keys ") values (" sql/param-vals ")"))
+  (d/definsert insert-generated-key db
+    (d/argkeys [:id :name :appearance])
+    (d/generated-keys [:ID]) ; hsqldb cap rules.
+    (d/sql "insert into fruit (" sql/param-keys ") values (" sql/param-vals ")"))
   (is (= [{:id 1}] (insert-generated-key 1 "apple" "red"))))
 
 (deftest insert-multiple
   (create-test-table :fruit)
-  (dbfn/definsert insert-multiple db
-    (dbfn/sql "insert into fruit (" sql/param-keys ") values (" sql/param-vals ")"))
+  (d/definsert insert-multiple db
+    (d/sql "insert into fruit (" sql/param-keys ") values (" sql/param-vals ")"))
   (is (= '(1) (insert-multiple {:id 1 :name "apple" :appearance "red"})))
   (is (= '(1) (insert-multiple :id 1 :name "apple" :appearance "red")))
   (is (= '(1 1) (insert-multiple {:id 1 :name "apple" :appearance "red"} {:id 2 :name "orange" :appearance "orange"})))
   (is (= '(1 1) (insert-multiple [{:id 1 :name "apple" :appearance "red"} {:id 2 :name "orange" :appearance "orange"}]))))
 
 (deftest exec-modes
-  (dbfn/defselect fruit-modes db
-    (dbfn/argkeys [:name :cost])
-    (dbfn/sql "select * from fruit where name = :name and cost = :cost"))
+  (d/defselect fruit-modes db
+    (d/argkeys [:name :cost])
+    (d/sql "select * from fruit where name = :name and cost = :cost"))
   (is (= ["select * from fruit where name = ? and cost = ?" "kiwi" 1])
-      (dbfn/sql-only (fruit-modes "kiwi" 1)))
+      (d/sql-only (fruit-modes "kiwi" 1)))
   (is (= ["select * from fruit where name = ? and cost = ?" :name :cost])
-      (dbfn/keywords-only (fruit-modes "kiwi" 1)))
+      (d/keywords-only (fruit-modes "kiwi" 1)))
   (is (= ["select * from fruit where name = 'kiwi' and cost = 1"])
-      (dbfn/keywords-only! (fruit-modes "kiwi" 1)))
-  (is (map? (dbfn/spec-only (fruit-modes "kiwi" 1)))))
+      (d/keywords-only! (fruit-modes "kiwi" 1)))
+  (is (map? (d/spec-only (fruit-modes "kiwi" 1)))))
 
 ; (run-tests 'clj-sql-mapper.test.dbfn)
