@@ -6,9 +6,9 @@
 (defn- html-row [ks m]
   [:tr (map #(vector :td (m %)) ks)])
 
-(defn- html-table [coll]
-  (when-let [m (first coll)]
-    (let [ks (->> m keys (apply sorted-set))]
+(defn- html-table [ks rs]
+  (when-let [m (first rs)]
+    (let [ks (or ks (->> m keys (apply sorted-set)))]
       (html
        [:head
         (include-css "http://twitter.github.com/bootstrap/assets/css/bootstrap.css")]
@@ -19,22 +19,33 @@
           [:tr
            (map #(vector :th %) ks)]]
          [:tbody
-          (map (partial html-row ks) coll)]]]))))
+          (map (partial html-row ks) rs)]]]))))
 
-(defn browse
-  "Browse a coll of maps as an html table in a browser."
-  [coll]
-  (when-let [html (html-table coll)]
-    (let [file (java.io.File/createTempFile "clj-sql-mapper-table" ".html")]
-      (.deleteOnExit file)
-      (spit file html)
-      (browse-url (str "file:///" (.getAbsolutePath file))))))
-
-; (println (xml/indent-str (xml/as-elements [{:b 2 :c 3 :a 1} {:b 22 :c 33 :a 11}])))
-; (println (xml/indent-str (xml/as-elements {:b 2 :c 3 :a 1})))
+(defn browse-resultset
+  "Browse a rs of maps as an html table in a browser.
+   ks specifies keys to display and may be nil, which
+   will display all keys."
+  ([rs] (browse-resultset nil rs))
+  ([ks rs]
+      (when-let [html (html-table ks rs)]
+        (let [file (java.io.File/createTempFile "clj-sql-mapper-table" ".html")]
+          (.deleteOnExit file)
+          (spit file html)
+          (browse-url (str "file:///" (.getAbsolutePath file)))))))
 
 (comment
-  (browse [{:b 2 :c 3 :a 1} {:b 22 :c 33 :a 11}])
+  (browse-resultset [{:b 2 :c 3 :a 1} {:b 22 :c 33 :a 11}])
+  (browse-resultset [:b :a] [{:b 2 :c 3 :a 1} {:b 22 :c 33 :a 11}])
+  (xml/sexp-as-element [:root {:a 1 :b 2} [:parents "parents"]])
+  (println
+   (xml/indent-str
+    (xml/sexp-as-element
+     [:root {:a 1 :b 2}
+      [:parents
+       [:parent {:id 1}
+        [:children [:child {:id 3}] [:child {:id 4}]]]
+       [:parent {:id 2}
+        [:children [:child {:id 5}] [:child {:id 6}]]]]])))
   )
 
 
