@@ -1,6 +1,7 @@
 (ns clj-sql-mapper.browse
   (:use [clojure.java.browse :only [browse-url]]
-        [hiccup [core :only [html]] [page :only [include-css]]])
+        [hiccup [core :only [html]] [page :only [include-css]]]
+        [clojure.data.xml :only [sexp-as-element]])
   (:require [clojure.data.xml :as xml]))
 
 (defn- html-row [ks m]
@@ -31,11 +32,22 @@
         (let [file (java.io.File/createTempFile "clj-sql-mapper-table" ".html")]
           (.deleteOnExit file)
           (spit file html)
-          (browse-url (str "file:///" (.getAbsolutePath file)))))))
+          (-> file .toURI str browse-url)))))
 
 (comment
+(defn- as-xml-sexp [x]
+  (cond
+   (map? x) (map as-xml-sexp x)
+   ))
+
+(defn browse-map
+  "Browse a map as an xml doc in a browser."
+  [m]
+  )
+
   (browse-resultset [{:b 2 :c 3 :a 1} {:b 22 :c 33 :a 11}])
   (browse-resultset [:b :a] [{:b 2 :c 3 :a 1} {:b 22 :c 33 :a 11}])
+
   (xml/sexp-as-element [:root {:a 1 :b 2} [:parents "parents"]])
   (println
    (xml/indent-str
