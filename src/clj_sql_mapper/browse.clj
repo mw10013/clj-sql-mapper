@@ -1,7 +1,7 @@
 (ns clj-sql-mapper.browse
   (:use [clojure.java.browse :only [browse-url]]
         [hiccup [core :only [html]] [page :only [include-css]]]
-        [clojure.data.xml :only [sexp-as-element]])
+        [clojure.data.xml :only [sexp-as-element emit]])
   (:require [clojure.data.xml :as xml]))
 
 (defn- html-row [ks m]
@@ -28,36 +28,34 @@
    will display all keys."
   ([rs] (browse-resultset nil rs))
   ([ks rs]
-      (when-let [html (html-table ks rs)]
-        (let [file (java.io.File/createTempFile "clj-sql-mapper-table" ".html")]
-          (.deleteOnExit file)
-          (spit file html)
-          (-> file .toURI str browse-url)))))
+     (when-let [html (html-table ks rs)]
+       (let [file (java.io.File/createTempFile "clj-sql-mapper-table" ".html")]
+         (.deleteOnExit file)
+         (spit file html)
+         (-> file .toURI str browse-url)))))
 
-(comment
-(defn- as-xml-sexp [x]
+(defn- as-xml-sexp [tag x]
   (cond
-   (map? x) (map as-xml-sexp x)
-   ))
+   (map? x) (into [tag] (map (fn [[k v]] (as-xml-sexp k v)) x))
+   (coll? x) (into [tag] (map #(as-xml-sexp :item %) x))
+   :else [tag x]))
 
 (defn browse-map
   "Browse a map as an xml doc in a browser."
   [m]
-  )
+  (let [xml (->> m (as-xml-sexp :root) sexp-as-element)
+        file (java.io.File/createTempFile "clj-sql-mapper-map" ".xml")]
+    (.deleteOnExit file)
+    (with-open [writer (clojure.java.io/writer file)]
+      (emit xml writer))
+    (-> file .toURI str browse-url)))
+
+(comment
+  (browse-map {:a 1 :b 2})
+  (browse-map {:a 1 :children [{:c 3} {:d 4}]})
 
   (browse-resultset [{:b 2 :c 3 :a 1} {:b 22 :c 33 :a 11}])
   (browse-resultset [:b :a] [{:b 2 :c 3 :a 1} {:b 22 :c 33 :a 11}])
-
-  (xml/sexp-as-element [:root {:a 1 :b 2} [:parents "parents"]])
-  (println
-   (xml/indent-str
-    (xml/sexp-as-element
-     [:root {:a 1 :b 2}
-      [:parents
-       [:parent {:id 1}
-        [:children [:child {:id 3}] [:child {:id 4}]]]
-       [:parent {:id 2}
-        [:children [:child {:id 5}] [:child {:id 6}]]]]])))
   )
 
 
