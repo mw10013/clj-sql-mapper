@@ -28,7 +28,7 @@
    Always returns a coll so sql can mapcat."
   (core-cond
    (string? sql) (parse-str sql)
-   (or (fn? sql) (var? sql) (keyword? sql)) (list sql)
+   (or (fn? sql) (var? sql) (keyword? sql) (number? sql)) (list sql)
    (coll? sql) sql
    :else (throw (IllegalArgumentException. (str "sql/compile-sql: " sql)))))
 
@@ -83,6 +83,7 @@
      (reduce (fn [prep-sql x]
                (core-cond
                 (string? x) (update-in prep-sql [0] str-space x)
+                (number? x) (update-in prep-sql [0] str-space (str x))
                 (keyword? x) (prepare-keyword prep-sql m x )
                 (var? x) (let [[s & rest] (prepare m @x)] (-> prep-sql (update-in [0] str-space s) (into rest)))
                 (fn? x) (let [[s & rest] (x m)] (-> prep-sql (update-in [0] str-space s) (into rest)))
