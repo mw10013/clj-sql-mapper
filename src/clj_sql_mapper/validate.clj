@@ -6,14 +6,14 @@
    A rule is [key predicate error-string]. If predicate fails
    returns {key [error] otherwise nil.
 
-   If key is ::*, passes m into predicate.
+   If key is :*, passes m into predicate.
 
    If key is a collection, the collection should contain rules
    and the first invalid rule returns an error map."
   [m [k pred? error :as rule]]
   (if (coll? k)
     (->> rule (map (partial validate m)) (remove nil?) first)
-    (when-not (pred? (if (= k ::*) m (k m)))
+    (when-not (pred? (if (= k :*) m (k m)))
       {k [error]})))
 
 (defn invalid?
