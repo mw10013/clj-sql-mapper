@@ -33,4 +33,12 @@
     (is (= "rh-handler" (:body (handler (request :get "/rh-handler")))))
     (is (= "rh-handler" (:body (handler (request :post "/rh-handler")))))))
 
+(deftest regex-rh
+  (reset! rh/routes {})
+  (let [handler (rh/wrap-rhandler identity)]
+    (rh/defrh rh-handler ["/rh-handler/:id"  :id #"\d+"] [id] (str "rh-handler: " id))
+    (is (= "rh-handler: 1" (:body (handler (request :get "/rh-handler/1")))))
+    (rh/defrh rh-handler ["/rh-handler/:id"  :id #"\d+"] [id] (str "rh-handler-redefined: " id))
+    (is (= "rh-handler-redefined: 1" (:body (handler (request :get "/rh-handler/1")))))))
+
 ; (run-tests 'clj-sql-mapper.test.rhandler)
