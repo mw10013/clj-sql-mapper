@@ -47,31 +47,6 @@
          (swap! routes assoc ~k (~method ~route ~bindings #(~fn-name %))))
       `(swap! routes assoc ~k (~method ~route ~bindings ~@body)))))
 
-(defmacro defrh
-  "Adds a route handler to be dispatched by wrap-rhandler.
-   
-   Supported forms:
-
-   (defrh \"/foo/:id\" [id]) an unnamed route
-   (defrh :post \"foo/:id\" [id]) a route that responds to POST
-   (defrh foo \"/foo/:id\" [id]) a named route
-   (defrh foo :post \"/foo/:id\" [id]) 
-
-   The default method is :get"
-  [& args]
-  (let [[fn-name method route bindings & body] (cond
-                                                (-> args second keyword?) args
-                                                (-> args first symbol?) (list* (first args) :get (rest args))
-                                                (-> args first keyword?) (list* nil args)
-                                                :else (list* nil :get args))
-        k (route->key method route)
-        method (symbol "compojure.core" (-> method name upper-case))]
-    (if fn-name
-      `(do
-         (defn ~fn-name [req#] (compojure.core/let-request [~bindings req#] ~@body))
-         (swap! routes assoc ~k (~method ~route ~bindings #(~fn-name %))))
-      `(swap! routes assoc ~k (~method ~route ~bindings ~@body)))))
-
 (comment
   (reset! routes {})
   (doseq [s ["a" "b"]]
