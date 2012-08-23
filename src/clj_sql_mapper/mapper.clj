@@ -25,12 +25,14 @@
 (defn- reduce-mappings [mappings m] (reduce #(%2 %1) m mappings))
 
 (defn apply-mappings
-  "Takes collection of mappings and x, a map or collection of
+  "Takes n collections of mappings and x, a map or collection of
    maps. Applies mappings on x."
-  [mappings x]
-  (if (map? x)
-    (reduce-mappings mappings x)
-    (map (partial reduce-mappings mappings) x)))
+  [& args]
+  (let [mappings (apply concat (butlast args))
+        x (last args)]
+    (if (map? x)
+      (reduce-mappings mappings x)
+      (map (partial reduce-mappings mappings) x))))
 
 (defn- result-path
   "Returns result path for m into the final result map.
