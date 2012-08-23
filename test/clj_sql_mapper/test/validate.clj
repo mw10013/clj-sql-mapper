@@ -21,14 +21,14 @@
          (v/invalid? {:password "secret" :confirm-password "secret-1"}
                      [[:password (complement clojure.string/blank?) "Required."]
                       [:confirm-password (complement clojure.string/blank?) "Required."]
-                      [:* #(apply = (map % [:password :confirm-password])) "Passwords must match."]])))
+                      [identity :* #(apply = (map % [:password :confirm-password])) "Passwords must match."]])))
   (is (not (v/invalid? {:password "secret" :confirm-password "secret"}
                        [[:password (complement clojure.string/blank?) "Required."]
                         [:confirm-password (complement clojure.string/blank?) "Required."]
-                        [:* #(apply = (map % [:password :confirm-password])) "Passwords must match."]])))
+                        [identity :* #(apply = (map % [:password :confirm-password])) "Passwords must match."]])))
   (is (= {:a ["Required."]}
          (v/invalid? {:password "secret" :confirm-password "secret" :a ""}
                      [[:password (complement clojure.string/blank?) "Required."]
                       [:confirm-password (complement clojure.string/blank?) "Required."]
-                      [:* #(apply = (map % [:password :confirm-password])) "Passwords must match."]]
+                      [identity :* #(apply = (map % [:password :confirm-password])) "Passwords must match."]]
                      [:a (complement clojure.string/blank?) "Required."]))))
