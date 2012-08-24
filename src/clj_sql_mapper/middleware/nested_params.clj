@@ -15,7 +15,7 @@
      \"[:parents 1 :children 0 :name]\""
   [param-name]
   (if (= (first param-name) \[)
-    (read-string param-name)
+    (binding [*read-eval* false] (read-string param-name))
     (let [[_ k ks] (re-matches #"(.*?)((?:\[.*?\])*)" (name param-name))
           keys     (if ks (map second (re-seq #"\[(.*?)\]" ks)))]
       (cons k keys))))
