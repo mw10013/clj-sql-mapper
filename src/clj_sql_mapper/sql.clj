@@ -19,9 +19,6 @@
   "Parses s to return a collection of strings and keywords."
   (-> (str "'(\"" s "\")")  (str/replace  #":[a-z0-9\-!]+" #(str \" % \")) read-string eval))
 
-; (parse-str "xmlelement(\"title\", :title)")
-; (parse-str "xmlelement(\\\"title\\\", :title)")
-
 (defn- compile-sql [sql]
   "Compiles sql into a list of strings, keywords, vars, colls,
    and functions taking a parameter map.

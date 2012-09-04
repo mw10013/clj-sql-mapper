@@ -1,6 +1,5 @@
 (ns clj-sql-mapper.rhandler
-  (:use hiccup.core hiccup.page hiccup.form
-        [clojure.string :only [upper-case]]
+  (:use [clojure.string :only [upper-case]]
         [bultitude.core :only [namespaces-on-classpath]])
   (:require compojure.core))
 
@@ -46,20 +45,3 @@
          (defn ~fn-name [req#] (compojure.core/let-request [~bindings req#] ~@body))
          (swap! routes assoc ~k (~method ~route ~bindings #(~fn-name %))))
       `(swap! routes assoc ~k (~method ~route ~bindings ~@body)))))
-
-(comment
-  (reset! routes {})
-  (doseq [s ["a" "b"]]
-    (defrh (str "/gen-" s) [] s))
-  
-  (defrh "/form" [] (html (form-to [:post "/form"] (submit-button "submit"))))
-  (defrh :post "/form" [] "posted-1")
-  (defrh path  "/path/:id" [id] (str "path v1: id:" id))
-  (defrh "/path/:id" [id] (str "path v2: id:" id))
-  (defrh ["/user/:id" :id #"[0-9]+"] [id] (str "user v1: id: " id))
-  (defrh ["/user/:id" :id #"[0-9]+"] [id] (str "user v2: id: " id))
-  
-  (route->key :get "/path/:id")
-  (route->key :post ["/path/:id" :id #"[0-9]+"])
-  (route->key :any "/path")
-  )
